@@ -1,3 +1,14 @@
+# Customized
+.vscode/
+.idea/
+.conda/
+.notes/
+.cache/
+/data
+/outputs
+/test*
+/tmp*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

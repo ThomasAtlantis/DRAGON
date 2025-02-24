@@ -1,0 +1,42 @@
+from .utils.configure import Configure
+from .utils.configure import Field as F
+
+class DragonConfig(Configure):
+    device                = F(str, default="cuda:0", help="Device to use for inference")
+    model_config_path     = F(str, required=True, help="")
+    repo_id               = F(str, required=True, help="Hugging Face repository id of the test set")
+    dataset_id            = F(str, required=True, help="Hugging Face dataset id of the test set")
+    data_ratio            = F(float, default=1.0, help="")
+    output_path           = F(str, required=True, help="")
+    max_docs              = F(int, default=None, help="")
+    doc_indices_path      = F(str, default=None, help="")
+    per_gpu_batch_size    = F(int, default=64, help="")
+    retriever             = F(str, default="contriever", help="The retriever class defined in dragon/retriever/models")
+    do_retrieval          = F(bool, default=True, help="Number of documents to retrieve per questions")
+    use_faiss_gpu         = F(bool, default=False, help="If enabled, use faiss GPU for retrieval inference")
+    ensemble              = F(int, default=0, help="Number of documents to retrieve per questions")
+    passages              = F(str, required=True, help="Passage file with suffix in ['.tsv', '.jsonl'] or"
+                                                       "Hugging Face RepoID and DatasetID, split with comma")
+    passages_embeddings   = F(str, default="data/embeddings", help="Glob path to encoded passages")
+    n_docs                = F(int, default=10, help="Number of documents to retrieve per questions")
+    chunk_size            = F(int, default=64, help="Maximum number of words in a chunk")
+    normalize_text        = F(bool, default=False, help="normalize text")
+    question_maxlength    = F(int, default=128, help="Maximum number of tokens in a question")
+    random                = F(int, default=0, help="random document")
+    retrieved_max_length  = F(int, default=256, help="")
+    context_len           = F(int, default=256, help="")
+    pred_len              = F(int, default=256, help="")
+    re_model_name_or_path = F(str, default="facebook/contriever", help="path to directory containing model weights and config file")
+    embedding_dim         = F(int, default=768, help="The embedding dimension for indexing")
+    n_subquantizers       = F(int, default=0, help="Number of subquantizer used for vector quantization, if 0 flat index is used")
+    n_bits                = F(int, default=8, help="Number of bits per subquantizer")
+    indexing_batch_size   = F(int, default=1000000, help="Batch size of the number of passages indexed")
+    load_index            = F(bool, default=False, help="If enabled, load index from disk")
+    dump_index            = F(bool, default=False, help="If enabled, save index to disk")
+    remove_broken_sents   = F(bool, default=False, help="If enabled, remove broken sentences")
+    round_broken_sents    = F(bool, default=False, help="If enabled, round broken sentences")
+
+    class cache:
+        directory = F(str, default=".cache", help="Directory to store cache files")
+        load_query2docs = F(bool, default=True, help="Load query2docs cache")
+        dump_query2docs = F(bool, default=True, help="Dump query2docs cache")
