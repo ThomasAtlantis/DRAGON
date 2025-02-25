@@ -61,7 +61,8 @@ python -u eval_LM.py \
     --pred_len 768 \
     --output_path "outputs/wikitext2.data" \
     --n_docs 2 \
-    --ensemble 2
+    --ensemble 2 \
+    --dump_index true
 ```
 Results:
 |Generator  |Retriever  |Dataset   |Ensemble|BPB    |
@@ -75,8 +76,8 @@ Results:
 
 ## TODO List
 ### Logic
-- [ ] Find why the results are different from that of the official implementation
-- [ ] rename passages.txt to passages.jsonl
+- [x] Find why the results are different from that of the official implementation
+- [x] rename passages.txt to passages.jsonl
 - [ ] Dynamic document weight
 - [ ] Distributed RAG
 - [ ] Speculative DRAG

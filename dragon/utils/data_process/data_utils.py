@@ -26,7 +26,7 @@ def chunkify(dataset, n):
 
 def load_passages_hf(repo_id, dataset_id, chunk_size, cache_path=".cache"):
     logger.info(f'Loading `{dataset_id}` as passages from Hugging Face Repo `{repo_id}` ...')
-    @file_cache(Path(cache_path, dataset_id, "passages.txt"))
+    @file_cache(Path(cache_path, dataset_id, "passages.jsonl"))
     def wrapper():
         dataset = datasets.load_dataset(repo_id, dataset_id, split='train')
         passages = chunkify(dataset, chunk_size)

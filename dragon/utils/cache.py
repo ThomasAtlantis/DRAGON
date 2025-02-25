@@ -1,6 +1,8 @@
 import pickle
 from pathlib import Path
+
 from .mlogging import Logger
+from .file_utils import Serializer
 
 logger = Logger.build(__name__, level="INFO")
 
@@ -33,22 +35,20 @@ class Cache:
                 pickle.dump(self.cache, f)
 
 
-
 def file_cache(path):
     """
     A decorator that caches the result of a function to a file.
     """
+    serializer = Serializer.from_suffix(Path(path).suffix)
     def decorator(func):
         def wrapper(*args, **kwargs):
             if Path(path).exists():
                 logger.info(f"Load data from cache@{path}.")
-                with open(path, "rb") as f:
-                    return pickle.load(f)
+                return serializer.load(path)
             else:
                 result = func(*args, **kwargs)
                 Path(path).parent.mkdir(parents=True, exist_ok=True)
-                with open(path, "wb") as f:
-                    pickle.dump(result, f)                
+                serializer.dump(result, path)
                 logger.info(f"Dump data into cache@{path}.")
                 return result
         return wrapper

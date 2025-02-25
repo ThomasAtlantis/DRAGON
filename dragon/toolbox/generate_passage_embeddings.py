@@ -1,9 +1,6 @@
 import pickle
-import torch
 import json
 from pathlib import Path
-from tqdm import tqdm
-from transformers import PreTrainedTokenizer, PreTrainedModel
 from dragon.utils.data_process import text_utils
 from dragon.utils.data_process import data_utils
 from dragon.retriever.models import contriever
