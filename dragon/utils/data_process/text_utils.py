@@ -150,9 +150,9 @@ def embed_texts(
         **kwargs
     ):
     allids, allembeddings = [], []
-    total = (len(texts) + batch_size - 1) // batch_size
+    # total = (len(texts) + batch_size - 1) // batch_size
     with torch.inference_mode():
-        for batch_ids, batch_text in tqdm(text_loader(texts, batch_size, **kwargs), total=total):
+        for batch_ids, batch_text in text_loader(texts, batch_size, **kwargs):
             encoded_batch = tokenizer.batch_encode_plus(
                 batch_text, return_tensors="pt",
                 max_length=text_size,

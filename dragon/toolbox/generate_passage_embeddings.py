@@ -66,28 +66,6 @@ def passage_loader(passages: list[str], batch_size: int, config: GenEmbeddingCon
         yield batch_ids, batch_text
 
 
-# def embed_passages(passages: list, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, config: GenEmbeddingConfig):
-#     logger.info(f'Embedding {len(passages)} passages ...')
-#     allids, allembeddings = [], []
-#     total = (len(passages) + config.batch_size - 1) // config.batch_size
-#     with torch.inference_mode():
-#         for batch_ids, batch_text in tqdm(passage_loader(passages, config), total=total):
-#             encoded_batch = tokenizer.batch_encode_plus(  # TODO: extract a unique definition
-#                 batch_text, return_tensors="pt",
-#                 max_length=config.passage_size,
-#                 padding=True, truncation=True
-#             )
-#             encoded_batch = {k: v.cuda() for k, v in encoded_batch.items()}
-#             embeddings = model(**encoded_batch)
-
-#             allids.extend(batch_ids)
-#             allembeddings.append(embeddings)
-
-#     allembeddings = torch.cat(allembeddings, dim=0).cpu().numpy()
-#     logger.debug(f"allembeddings.shape={allembeddings.shape}")
-#     logger.debug(f"allembeddings.dtype={allembeddings.dtype}")
-#     return allids, allembeddings
-
 def get_shard(passages):
     shard_size = len(passages) // config.num_shards
     beg_idx = config.shard_id * shard_size

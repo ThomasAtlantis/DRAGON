@@ -19,7 +19,7 @@ def chunkify(dataset, n):
         for i in range(0, len(text), n):
             passages.append({
                 "text": " ".join(text[i: i + n]),
-                "id": len(passages) + 1
+                "id": len(passages)
             })
     return passages
 
@@ -59,12 +59,10 @@ def load_passages(passages, chunk_size, cache_path=".cache"):
 
 
 class DataSample(NamedTuple):
-    """
-    Prompt is the user query, while inputs and labels are for language modeling.
-    """
-    prompt: List[Token]
+    query: List[Token]
     inputs: List[Token]
     labels: List[Token]
+
 
 def tokens_to_contextual_lm_samples_total(token_list, max_seq_len, context_len):
     total = len(token_list) - max_seq_len
@@ -87,7 +85,7 @@ def tokens_to_contextual_lm_samples(
     @param max_seq_len: Maximum sequence length of the language model
     @param context_len: Sequence length for the context
 
-    @return: DataSample(prompt, inputs, labels)
+    @return: DataSample(query, inputs, labels)
 
     e.g.
     >>> for context, inputs, labels in tokens_to_contextual_lm_samples([1, 2, 3, 4, 5, 6, 7, 8, 9], 0, 4, 2):
@@ -102,13 +100,13 @@ def tokens_to_contextual_lm_samples(
     def extract_context(beg, end):
         end = min(end, len(token_list))
         return DataSample(
-            prompt=token_list[end - max_seq_len - 1: beg - 1],
+            query=token_list[end - max_seq_len - 1: beg - 1],
             inputs=token_list[beg - 1: end - 1],
             labels=token_list[beg: end]
         )
 
     yield DataSample(
-        prompt=[], 
+        query=[], 
         inputs=[bos_token]+token_list[: max_seq_len - 1], 
         labels=token_list[: max_seq_len]
     )  # Initially, model the entire sequence given the bos_token

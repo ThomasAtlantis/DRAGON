@@ -1,6 +1,7 @@
 import pickle
 from typing import List, Tuple
 import faiss
+import ipdb
 import numpy as np
 from pathlib import Path
 from ..utils.mlogging import Logger
@@ -28,13 +29,14 @@ class Indexer(object):
     def search_knn(
             self, query_embeddings: np.ndarray, 
             top_docs: int, batch_size: int = 2048
-        ) -> Tuple[List[List[str]], List[List[float]]]:
+        ) -> Tuple[List[List[int]], List[List[float]]]:
         query_embeddings = query_embeddings.astype('float32')
         db_ids, scores = [], []
         for k in range(0, len(query_embeddings), batch_size):
             query_embeddings_batch = query_embeddings[k:k + batch_size]
+            # ipdb.set_trace()
             scores_batch, indexes = self.index.search(query_embeddings_batch, top_docs)
-            db_ids_batch = [[str(self.indexId2DBId[i]) for i in ids_each_query] for ids_each_query in indexes]
+            db_ids_batch = [[self.indexId2DBId[i] for i in ids_each_query] for ids_each_query in indexes]
             db_ids.extend(db_ids_batch)
             scores.extend(scores_batch)
         return db_ids, scores
@@ -48,7 +50,7 @@ class Indexer(object):
         index_file, meta_file = self.disk_file(directory)
         logger.info(f'Dumping index into `{index_file}`, meta data into `{meta_file}` ...')
 
-        faiss.write_index(self.index, index_file)
+        faiss.write_index(self.index, str(index_file))
         logger.info(f'Dumped index of type {type(self.index)} and size {self.index.ntotal}')
 
         with open(meta_file, mode='wb') as f: pickle.dump(self.indexId2DBId, f)
@@ -58,7 +60,7 @@ class Indexer(object):
         index_file, meta_file = self.disk_file(directory)
         logger.info(f'Loading index from `{index_file}`, meta data from `{meta_file}` ...')
 
-        self.index = faiss.read_index(index_file)
+        self.index = faiss.read_index(str(index_file))
         logger.info(f'Loaded index of type {type(self.index)} and size {self.index.ntotal}')
 
         with open(meta_file, "rb") as reader: self.indexId2DBId = pickle.load(reader)

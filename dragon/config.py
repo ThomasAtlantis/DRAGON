@@ -3,7 +3,6 @@ from .utils.configure import Field as F
 
 class DragonConfig(Configure):
     device                = F(str, default="cuda:0", help="Device to use for inference")
-    model_config_path     = F(str, required=True, help="")
     repo_id               = F(str, required=True, help="Hugging Face repository id of the test set")
     dataset_id            = F(str, required=True, help="Hugging Face dataset id of the test set")
     data_ratio            = F(float, default=1.0, help="")
@@ -11,13 +10,14 @@ class DragonConfig(Configure):
     max_docs              = F(int, default=None, help="")
     doc_indices_path      = F(str, default=None, help="")
     per_gpu_batch_size    = F(int, default=64, help="")
+    model_config_path     = F(str, required=True, help="Path to the model configuration file")
     retriever             = F(str, default="contriever", help="The retriever class defined in dragon/retriever/models")
     do_retrieval          = F(bool, default=True, help="Number of documents to retrieve per questions")
     use_faiss_gpu         = F(bool, default=False, help="If enabled, use faiss GPU for retrieval inference")
     ensemble              = F(int, default=0, help="Number of documents to retrieve per questions")
     passages              = F(str, required=True, help="Passage file with suffix in ['.tsv', '.jsonl'] or"
                                                        "Hugging Face RepoID and DatasetID, split with comma")
-    passages_embeddings   = F(str, default="data/embeddings", help="Glob path to encoded passages")
+    passages_embeddings   = F(str, default="data/embeddings/*.pkl", help="Glob path to encoded passages")
     n_docs                = F(int, default=10, help="Number of documents to retrieve per questions")
     chunk_size            = F(int, default=64, help="Maximum number of words in a chunk")
     normalize_text        = F(bool, default=False, help="normalize text")
@@ -35,8 +35,9 @@ class DragonConfig(Configure):
     dump_index            = F(bool, default=False, help="If enabled, save index to disk")
     remove_broken_sents   = F(bool, default=False, help="If enabled, remove broken sentences")
     round_broken_sents    = F(bool, default=False, help="If enabled, round broken sentences")
+    block_size            = F(int, default=10000, help="Number of documents to process in a block")
 
     class cache:
         directory = F(str, default=".cache", help="Directory to store cache files")
-        load_query2docs = F(bool, default=True, help="Load query2docs cache")
-        dump_query2docs = F(bool, default=True, help="Dump query2docs cache")
+        load_query2docs = F(bool, default=False, help="Load query2docs cache")
+        dump_query2docs = F(bool, default=False, help="Dump query2docs cache")

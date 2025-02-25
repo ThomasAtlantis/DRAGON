@@ -4,8 +4,9 @@ import faiss
 import pickle
 import numpy as np
 import copy
+import torch
 
-from typing import List
+from typing import List, Dict
 from transformers import PreTrainedTokenizer, PreTrainedModel
 
 from pathlib import Path
@@ -35,10 +36,10 @@ class Retriever():
         retriever_module = importlib.import_module(
             f"dragon.retriever.models.{config.retriever}")
         self.model, self.tokenizer = retriever_module.load_retriever(config.re_model_name_or_path)
-        self.model = self.model.cuda() if config.device.startswith("cuda") else self.model
+        self.model = self.model.to(torch.device(config.device))
         self.indexer = Indexer(config.embedding_dim, config.n_subquantizers, config.n_bits)
 
-        embedding_files = sorted(glob.glob(config.passages_embeddings + '*'))
+        embedding_files = sorted(glob.glob(config.passages_embeddings))
         embeddings_dir = Path(embedding_files[0]).parent
         index_file, meta_file = Indexer.disk_file(embeddings_dir)  # TODO: move this line into indexer, and implement ID2DBID
         if config.load_index and Path(index_file).exists():
@@ -56,13 +57,13 @@ class Retriever():
                 cloner_options.useFloat16 = True
                 self.indexer.index = faiss.index_cpu_to_all_gpus(
                     self.indexer.index, co=cloner_options, ngpu=num_gpus)
-            logger.info(f"Conversion time: {time_meter.timer('conversion').duration:.6f} s.")
+            logger.debug(f"Conversion time: {time_meter.timer('conversion').duration:.6f} s.")
 
         self.query2docs = Cache(
             "query2docs", config.cache.load_query2docs, 
             config.cache.dump_query2docs, config.cache.directory)
         passages = load_passages(config.passages, config.chunk_size, config.cache.directory)
-        self.passage_id_map = {x['id']: x for x in passages}
+        self.passage_id_map: Dict[str, Dict] = {x['id']: x for x in passages}
 
     def embed_queries(self, queries: List[str]):
         def query_loader(queries, batch_size):
@@ -71,7 +72,7 @@ class Retriever():
                 if self.config.normalize_text:
                     for j in range(len(query_batch)):
                         query_batch[j] = text_utils.normalize(query_batch[j])
-                yield query_batch
+                yield [], query_batch
         _, embeddings = text_utils.embed_texts(
             self.model, self.tokenizer, queries, 
             batch_size=self.config.per_gpu_batch_size, 
@@ -79,21 +80,19 @@ class Retriever():
             text_loader=query_loader)
         return embeddings
     
-    def process_docs(self, doc, doc_id):
-        int_doc_id = int(doc_id)
+    def process_docs(self, doc, doc_id: int):
         logger.debug("Before:", doc["text"])
         if self.config.remove_broken_sents:
             doc["text"] = text_utils.remove_broken_sentences(doc["text"])
         # TODO: The sentence rounding approach assumes passages are in consecutive order
-        elif self.config.round_broken_sents and int_doc_id > 0:
-            pre_doc = self.passage_id_map[str(int_doc_id - 1)]
+        elif self.config.round_broken_sents and doc_id > 0:
+            pre_doc = self.passage_id_map[doc_id - 1]
             if text_utils.ends_mid_sentence(pre_doc["text"]):
                 first_half = text_utils.get_incomplete_sentence(pre_doc["text"], from_end=True)
                 doc["text"] = first_half + " " + doc["text"].lstrip()
             if text_utils.ends_mid_sentence(doc["text"]):
-                if int_doc_id < len(self.passage_id_map) - 1:
-                    next_doc_id = str(int_doc_id + 1)
-                    next_doc = self.passage_id_map[next_doc_id]
+                if doc_id < len(self.passage_id_map) - 1:
+                    next_doc = self.passage_id_map[doc_id + 1]
                     second_half = text_utils.get_incomplete_sentence(next_doc["text"], from_end=False)
                     doc["text"] = doc["text"].rstrip() + " " + second_half
         logger.debug("After:", doc["text"])
@@ -106,17 +105,16 @@ class Retriever():
             query_embeddings = self.embed_queries(queries)
             
             with time_meter.timer("retrieval"):
-                doc_ids, scores = self.indexer.search_knn(
-                    query_embeddings, self.config.n_docs)
+                doc_ids, scores = self.indexer.search_knn(query_embeddings, self.config.n_docs)
             assert(len(doc_ids) == len(queries) and len(scores) == len(queries))
-            logger.info(f"Retrieval finished in {time_meter.timer('retrieval').duration * 1e3:.1f} ms.")
+            logger.debug(f"Retrieval finished in {time_meter.timer('retrieval').duration * 1e3:.1f} ms.")
             
             docs_scores = []
             for query, query_doc_ids, query_scores in zip(queries, doc_ids, scores):
                 docs = []
                 for doc_id in query_doc_ids:
                     doc = copy.deepcopy(self.passage_id_map[doc_id])
-                    doc = self.process_docs(doc, doc_id)                    
+                    doc = self.process_docs(doc, doc_id)
                     docs.append(doc)
                 docs_scores.append((docs, query_scores))
                 self.query2docs.set(query, (docs, query_scores))
@@ -155,4 +153,4 @@ class Retriever():
             allembeddings, allids = self.add_embeddings_remaining(
                 allembeddings, allids, threshold=0, batch_size=indexing_batch_size)
 
-        logger.info(f"Indexing finished after {time_meter.timer('indexing').duration:.1f} s.")
+        logger.debug(f"Indexing finished after {time_meter.timer('indexing').duration:.1f} s.")
