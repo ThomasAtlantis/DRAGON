@@ -7,9 +7,8 @@ import torch
 class Generator:
 
     def __init__(self, config: DragonConfig):
-        model_name = config.model_config_path
-        self.context_len = config.context_len
-        self.max_seq_len = self.context_len + config.pred_len
+        model_name = config.generator.model
+        self.max_seq_len = config.generator.s_sequence
 
         self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
             model_name, device_map="cpu", torch_dtype=torch.float16).eval()

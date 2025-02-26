@@ -1,13 +1,15 @@
 import pickle
 from typing import List, Tuple
 import faiss
-import ipdb
 import numpy as np
 from pathlib import Path
+
+from ..utils.meter import TimeMeter
 from ..utils.mlogging import Logger
 
 
 logger = Logger.build(__name__, level="INFO")
+time_meter = TimeMeter()
 
 class Indexer(object):
 
@@ -18,14 +20,6 @@ class Indexer(object):
             self.index = faiss.IndexFlatIP(vector_sz)
         self.indexId2DBId = []
 
-    def index_data(self, ids: List[int], embeddings: np.ndarray):
-        self._update_id_mapping(ids)
-        embeddings = embeddings.astype('float32')
-        if not self.index.is_trained:
-            self.index.train(embeddings)
-        self.index.add(embeddings)
-        logger.info(f'Indexed {len(self.indexId2DBId)} embeddings.')
-
     def search_knn(
             self, query_embeddings: np.ndarray, 
             top_docs: int, batch_size: int = 2048
@@ -34,7 +28,6 @@ class Indexer(object):
         db_ids, scores = [], []
         for k in range(0, len(query_embeddings), batch_size):
             query_embeddings_batch = query_embeddings[k:k + batch_size]
-            # ipdb.set_trace()
             scores_batch, indexes = self.index.search(query_embeddings_batch, top_docs)
             db_ids_batch = [[self.indexId2DBId[i] for i in ids_each_query] for ids_each_query in indexes]
             db_ids.extend(db_ids_batch)
@@ -69,3 +62,51 @@ class Indexer(object):
 
     def _update_id_mapping(self, db_ids: List):
         self.indexId2DBId.extend(db_ids)
+
+    def _index_data(self, ids: List[int], embeddings: np.ndarray):
+        self._update_id_mapping(ids)
+        embeddings = embeddings.astype('float32')
+        if not self.index.is_trained:
+            self.index.train(embeddings)
+        self.index.add(embeddings)
+        logger.info(f'Indexed {len(self.indexId2DBId)} embeddings.')
+
+    def _add_embeddings(self, embeddings: np.ndarray, ids: List[int], batch_size: int):
+        end_idx = min(batch_size, embeddings.shape[0])
+        self._index_data(ids[:end_idx], embeddings[:end_idx])
+        return embeddings[end_idx:], ids[end_idx:]
+    
+    def _add_embeddings_remaining(self, embeddings: np.ndarray, ids: List[int], threshold: int, batch_size: int):
+        # Iteratively add embeddings until the remaining embeddings equal or less than threshold
+        while embeddings.shape[0] > threshold:
+            embeddings, ids = self._add_embeddings(embeddings, ids, batch_size)
+        return embeddings, ids
+    
+
+    def index_embeddings(self, embedding_files, indexing_batch_size, load_index=False, dump_index=False):
+        embeddings_dir = Path(embedding_files[0]).parent
+        index_file, _ = Indexer.disk_file(embeddings_dir)
+        if load_index and Path(index_file).exists():
+            self.load(embeddings_dir)
+        else:
+            # TODO: Use deque to improve this logic
+            logger.info(f'Indexing passages from files {embedding_files} ...')
+            with time_meter.timer("indexing"):
+                allids, allembeddings = [], np.array([])
+                for file in embedding_files:
+                    logger.info(f'Loading file `{file}` ...')
+                    with open(file, 'rb') as ifstream:
+                        ids, embeddings = pickle.load(ifstream)
+
+                    allembeddings = np.vstack(
+                        (allembeddings, embeddings)) if allembeddings.size else embeddings
+                    allids.extend(ids)
+                    
+                    allembeddings, allids = self._add_embeddings_remaining(
+                        allembeddings, allids, threshold=indexing_batch_size, batch_size=indexing_batch_size)
+        
+                allembeddings, allids = self._add_embeddings_remaining(
+                    allembeddings, allids, threshold=0, batch_size=indexing_batch_size)
+
+            logger.debug(f"Indexing finished after {time_meter.timer('indexing').duration:.1f} s.")
+            if dump_index: self.dump(embeddings_dir)

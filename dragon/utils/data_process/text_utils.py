@@ -140,34 +140,6 @@ def normalize(text):
     return text
 
 
-def embed_texts(
-        model: PreTrainedModel, 
-        tokenizer: PreTrainedTokenizer, 
-        texts: list[str], 
-        batch_size: int, 
-        text_size: int, 
-        text_loader: callable,
-        **kwargs
-    ):
-    allids, allembeddings = [], []
-    # total = (len(texts) + batch_size - 1) // batch_size
-    with torch.inference_mode():
-        for batch_ids, batch_text in text_loader(texts, batch_size, **kwargs):
-            encoded_batch = tokenizer.batch_encode_plus(
-                batch_text, return_tensors="pt",
-                max_length=text_size,
-                padding=True, truncation=True
-            )
-            encoded_batch = {k: v.cuda() for k, v in encoded_batch.items()}
-            embeddings = model(**encoded_batch)
-
-            allids.extend(batch_ids)
-            allembeddings.append(embeddings)
-
-    allembeddings = torch.cat(allembeddings, dim=0).cpu().numpy()
-    return allids, allembeddings
-
-
 def remove_broken_sentences(
         passage: str, from_beg=True, from_end=True) -> str:
     """

@@ -50,7 +50,7 @@ class Contriever(BertModel):
         return emb
 
 
-def load_retriever(model_path):
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
-    retriever = Contriever.from_pretrained(model_path).eval()
+def load_retriever():
+    tokenizer = transformers.AutoTokenizer.from_pretrained("facebook/contriever")
+    retriever = Contriever.from_pretrained("facebook/contriever").eval()
     return retriever, tokenizer
