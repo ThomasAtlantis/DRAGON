@@ -57,10 +57,17 @@ class Configure(metaclass=SingletonType):
                 if isinstance(value, type):
                     add_arguments_recursive(obj__dict__[attr_name], parser, prefix + attr_name + ".")
                 elif isinstance(value, Field) and not value.freeze:
-                    group.add_argument(
-                        f"--{prefix + attr_name}", type=value.type, 
-                        default=value.data, required=value.required, 
-                        help=value.help, metavar=value.type.__name__)
+                    kwargs = dict( 
+                        default=value.data, 
+                        required=value.required, 
+                        help=value.help
+                    )
+                    if value.type == bool:                        
+                        kwargs["action"] = "store_true" if value.data is False else "store_false"
+                    else:
+                        kwargs["type"] = value.type
+                        kwargs["metavar"] = value.type.__name__
+                    group.add_argument(f"--{prefix + attr_name}", **kwargs)
         add_arguments_recursive(self, parser)
     
     def _parse_args(self, parser: ArgumentParser):

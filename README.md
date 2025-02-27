@@ -45,7 +45,7 @@ python -u eval_LM.py \
     --evaluator.output_dir "outputs/" \
     --evaluator.dataset "Salesforce/wikitext,wikitext-103-raw-v1" \
     --evaluator.s_prefix 128 \
-    --cache.dump_index true
+    --cache.dump_index
 ```
 
 ### wikitext-2
@@ -73,7 +73,7 @@ python -u eval_LM.py \
     --evaluator.output_dir "outputs/" \
     --evaluator.dataset "Salesforce/wikitext,wikitext-2-raw-v1" \
     --evaluator.s_prefix 128 \
-    --cache.load_index true
+    --cache.load_index
 ```
 ### Results
 |Generator  |Retriever  |Dataset   |Ensemble|BPB    |
