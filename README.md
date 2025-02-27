@@ -73,7 +73,7 @@ python -u eval_LM.py \
     --evaluator.output_dir "outputs/" \
     --evaluator.dataset "Salesforce/wikitext,wikitext-2-raw-v1" \
     --evaluator.s_prefix 128 \
-    --cache.dump_index true
+    --cache.load_index true
 ```
 ### Results
 |Generator  |Retriever  |Dataset   |Ensemble|BPB    |
@@ -87,6 +87,7 @@ python -u eval_LM.py \
 
 ## TODO List
 ### Logic
+- [ ] Revise Replug to support token-wise aggregation
 - [ ] Dynamic document weight
 - [ ] Distributed RAG
 - [ ] Speculative DRAG

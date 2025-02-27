@@ -1,7 +1,11 @@
 import torch
 import transformers
 from transformers import BertModel
+import logging
 
+# Suppressing the warning: Some weights of the model checkpoint at facebook/contriever 
+# were not used when initializing Contriever: ['pooler.dense.bias', 'pooler.dense.weight']
+logging.getLogger("transformers.modeling_utils").setLevel(logging.ERROR)
 
 class Contriever(BertModel):
     def __init__(self, config, pooling="average", **kwargs):

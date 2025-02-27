@@ -18,3 +18,5 @@ class Generator:
         # within the training data for GPT-2 (and likely GPT-3 as well). By using this token, 
         # we enforce a shift in context both before and after <|endoftext|>.
         self.context_switching_id = self.tokenizer.convert_tokens_to_ids(["<|endoftext|>"])[0]
+    
+    def generate(self): ...
