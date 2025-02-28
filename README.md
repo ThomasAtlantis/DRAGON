@@ -15,67 +15,13 @@ DRAGON is a device-cloud distributed RAG framework, which enables a simultaneous
 |s_*(single) |size/length of *                                                    |
 |n_*(plural) |number of *                                                         |
 |bs_*(single)|batch size of *                                                     |
+## Aggregation
+$$\begin{aligned}
+log(y)&=\log \sum_{k} \frac{\exp(w^k)}{\sum_i \exp(w^i)}\cdot \frac{\exp(z^k)}{\sum_j \exp(z^k_j)}\\
+&=\log \sum_k \exp(\log \frac{\exp(w^k)}{\sum_i \exp(w^i)}+\log \frac{\exp(z^k)}{\sum_j \exp(z^k_j)})\\
+&={log\_sum\_exp(log\_softmax(w)+log\_softmax(z))}
+\end{aligned}$$
 ## Language Modeling
-### Loss Calculation
-$$\begin{aligned}CrossEntropy(\hat y,y)&=-\log \sum_{k} w^k\cdot \frac{\exp(z^k_y)}{\sum_j \exp(z^k_j)}\\
-&=-\log \sum_k \exp(\log ( w^k\cdot\frac{\exp(z^k_y)}{\sum_j \exp(z^k_j)}) )\\
-&=-\log \sum_k \exp(\log w^k + CrossEntropy(z^k, y))\end{aligned}$$
-### wikitext-103
-Generate passage embeddings:
-```shell
-HF_ENDPOINT=https://hf-mirror.com \
-python -m dragon.toolbox.embed_passages \
-    --retriever.model "contriever" \
-    --retriever.passages "Salesforce/wikitext,wikitext-103-raw-v1" \
-    --output_dir "./data/wikitext103" \
-    --retriever.bs_encode 512 \
-    --retriever.s_passage 128 \
-    --retriever.s_passage_chunk 64
-```
-Evaluate bpb score for language modeling:
-```shell
-python -u eval_LM.py \
-    --retriever.passages "Salesforce/wikitext,wikitext-103-raw-v1" \
-    --retriever.passages_embeddings "data/wikitext103/*.pkl" \
-    --retriever.s_context 128 \
-    --retriever.n_docs 2 \
-    --retriever.s_aggregate 2 \
-    --generator.model "facebook/opt-1.3b"  \
-    --generator.s_sequence 896 \
-    --evaluator.output_dir "outputs/" \
-    --evaluator.dataset "Salesforce/wikitext,wikitext-103-raw-v1" \
-    --evaluator.s_prefix 128 \
-    --cache.dump_index
-```
-
-### wikitext-2
-Generate passage embeddings:
-```shell
-HF_ENDPOINT=https://hf-mirror.com \
-python -m dragon.toolbox.embed_passages \
-    --retriever.model "contriever" \
-    --retriever.passages "Salesforce/wikitext,wikitext-2-raw-v1" \
-    --output_dir "./data/wikitext2" \
-    --retriever.bs_encode 512 \
-    --retriever.s_passage 128 \
-    --retriever.s_passage_chunk 64
-```
-Evaluate bpb score for language modeling:
-```shell
-python -u eval_LM.py \
-    --retriever.passages "Salesforce/wikitext,wikitext-2-raw-v1" \
-    --retriever.passages_embeddings "data/wikitext2/*.pkl" \
-    --retriever.s_context 128 \
-    --retriever.n_docs 2 \
-    --retriever.s_aggregate 2 \
-    --generator.model "facebook/opt-1.3b"  \
-    --generator.s_sequence 896 \
-    --evaluator.output_dir "outputs/" \
-    --evaluator.dataset "Salesforce/wikitext,wikitext-2-raw-v1" \
-    --evaluator.s_prefix 128 \
-    --cache.load_index
-```
-### Results
 |Generator  |Retriever  |Dataset   |Ensemble|BPB    |
 |-----------|-----------|----------|--------|-------|
 |opt-1.3b   |Contriever |wikitext-2|0       |2.8867 |
@@ -94,8 +40,8 @@ python -u eval_LM.py \
 - [ ] Scheduling algorithm
 
 ### Optimization
-- [ ] Rename decoder to RAG
-- [ ] Decouple the evaluator from decoder
-- [ ] Remove position information
+- [x] Rename decoder to RAG
+- [x] Decouple the evaluator from decoder
+- [x] Remove position information
 - [ ] Batch the output ensemble
-- [ ] Decoupling decoding and evaluation
+- [x] Decoupling decoding and evaluation

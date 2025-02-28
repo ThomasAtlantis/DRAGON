@@ -95,7 +95,6 @@ class Retriever():
         if len(queries) == 1 and queries[0] in self.query2docs:
             return [self.query2docs.get(queries[0])]
         else:
-
             def query_processor(query_batch):
                 if self.config.text.normalize:
                     for j in range(len(query_batch)):

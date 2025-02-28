@@ -54,7 +54,7 @@ class Indexer(object):
         logger.info(f'Loading index from `{index_file}`, meta data from `{meta_file}` ...')
 
         self.index = faiss.read_index(str(index_file))
-        logger.info(f'Loaded index of type {type(self.index)} and size {self.index.ntotal}')
+        logger.info(f'Loaded index of type {self.index.__class__.__name__} and size {self.index.ntotal}')
 
         with open(meta_file, "rb") as reader: self.indexId2DBId = pickle.load(reader)
         logger.info(f'Loaded meta data of size {len(self.indexId2DBId)}')
