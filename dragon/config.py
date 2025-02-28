@@ -36,6 +36,12 @@ class DragonConfig(Configure):
     class generator:
         model               = F(str,  required=True, help="Path to the model configuration file")
         s_sequence          = F(int,  default=896,   help="")
+    
+    class sampler:
+        do_sample           = F(bool, default=False, help="If enabled, use sampling instead of greedy decoding")
+        temperature         = F(float,default=1.0,   help="Temperature for sampling")
+        top_k               = F(int,  default=50,    help="Top-k sampling")
+        top_p               = F(float,default=1.0,   help="Top-p sampling")
 
     class evaluator:
         dataset             = F(str,  required=True, help="Path to the dataset file")

@@ -16,7 +16,7 @@ python -u run.py \
 
 from tqdm import tqdm
 from dragon.config import DragonConfig
-from dragon.rag import RagSequenceForGeneration
+from dragon.rag import RagForGeneration
 from dragon.utils.data_process.data_utils import ContextualLMSampleLoader
 from experiments.evaluator import Evaluator
 from experiments.metrics import CrossEntropy
@@ -26,7 +26,7 @@ class LanguageModelingEvaluator(Evaluator):
     
     def __init__(self, config: DragonConfig):
         super().__init__(config, name="LanguageModeling")
-        self.rag = RagSequenceForGeneration(config)
+        self.rag = RagForGeneration(config)
         repo_id, dataset_id = config.evaluator.dataset.split(",")
         self.data = load_dataset(
             repo_id, dataset_id, cache_path=config.cache.directory,
@@ -48,7 +48,7 @@ class LanguageModelingEvaluator(Evaluator):
     def evaluate(self):
         self.metric.reset()
         for query_ids, input_ids, label_ids in self.data_loader():
-            logprobs, _ = self.rag(query_ids, input_ids)
+            logprobs = self.rag(query_ids, input_ids)
             self.metric.update(logprobs=logprobs, labels=label_ids)
         result = float(self.metric.compute())
         self.logger.info(f"{self.metric.__class__.__name__}: {result:.4f}")

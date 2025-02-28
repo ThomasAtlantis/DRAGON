@@ -19,7 +19,7 @@ DRAGON is a device-cloud distributed RAG framework, which enables a simultaneous
 $$\begin{aligned}
 log(y)&=\log \sum_{k} \frac{\exp(w^k)}{\sum_i \exp(w^i)}\cdot \frac{\exp(z^k)}{\sum_j \exp(z^k_j)}\\
 &=\log \sum_k \exp(\log \frac{\exp(w^k)}{\sum_i \exp(w^i)}+\log \frac{\exp(z^k)}{\sum_j \exp(z^k_j)})\\
-&={log\_sum\_exp(log\_softmax(w)+log\_softmax(z))}
+&=log\\_sum\\_exp(log\\_softmax(w)+log\\_softmax(z))
 \end{aligned}$$
 ## Language Modeling
 |Generator  |Retriever  |Dataset   |Ensemble|BPB    |

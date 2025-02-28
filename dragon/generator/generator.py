@@ -1,16 +1,40 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers import PreTrainedModel, PreTrainedTokenizer
 from ..config import DragonConfig
-from typing import List, Tuple
+from transformers.modeling_outputs import CausalLMOutputWithPast
 import torch
 
+class Sampler:
+    def __init__(self, config: DragonConfig.sampler):
+        self.top_k = config.top_k
+        self.top_p = config.top_p
+        self.temperature = config.temperature
+        self.greedy = not config.do_sample
+
+    def __call__(self, probs: torch.Tensor) -> int:
+        if self.greedy:
+            return torch.argmax(probs, dim=-1).cpu().item()
+
+        if self.top_k > 0:
+            values, indices = torch.topk(probs, self.top_k)
+            probs = torch.zeros_like(probs).scatter_(-1, indices, values)
+
+        if self.top_p < 1.0:
+            sorted_probs, sorted_indices = torch.sort(probs, descending=True)
+            cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+            sorted_indices_to_keep = cumulative_probs <= self.top_p
+            sorted_indices_to_remove = sorted_indices_to_keep.ne(1)
+            probs[sorted_indices[sorted_indices_to_remove]] = 0
+
+        next_token_id = torch.multinomial(probs, num_samples=1).unsqueeze(dim=-1)
+        return next_token_id.cpu().item()
 
 class Generator:
 
     def __init__(self, config: DragonConfig):
         model_name = config.generator.model
         self.device = torch.device(config.device)
-
+        self.sampler = Sampler(config.sampler)
         self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
             model_name, device_map="cpu", torch_dtype=torch.float16).eval()
         self.tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
@@ -22,16 +46,8 @@ class Generator:
         self.context_switching_id = self.tokenizer.convert_tokens_to_ids(["<|endoftext|>"])[0]
         self.max_seq_len = min(config.generator.s_sequence, self.model.config.max_position_embeddings)
     
-    def generate(self, input_ids: torch.Tensor, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __call__(self, input_ids: torch.Tensor, **kwargs) -> CausalLMOutputWithPast:  # prefilling
         with torch.inference_mode():
-            output = self.model.generate(
-                input_ids, return_dict_in_generate=True, 
-                max_new_tokens=1, output_logits=True, **kwargs)
-            next_token = output.sequences[0][-1]
-            logits = output.logits[0][0]
-        return next_token, logits
-    
-    def __call__(self, input_ids: torch.Tensor, **kwargs):  # prefilling
-        with torch.inference_mode():
-            output = self.model(input_ids, return_dict=True, **kwargs)
+            output = self.model(
+                input_ids, return_dict=True, use_cache=True, **kwargs)
         return output
