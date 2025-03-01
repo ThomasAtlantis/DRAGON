@@ -43,13 +43,6 @@ class DragonConfig(Configure):
         top_k               = F(int,  default=50,    help="Top-k sampling")
         top_p               = F(float,default=1.0,   help="Top-p sampling")
 
-    class evaluator:
-        dataset             = F(str,  required=True, help="Path to the dataset file")
-        data_ratio          = F(float,default=1.0,   help="Ratio of the dataset to use")
-        output_dir          = F(str,  required=True, help="Path to save the evaluation output")
-        s_block             = F(int,  default=10000, help="Number of documents to process in a block")
-        s_prefix            = F(int,  default=128,   help="Size of the prefix in a rolling window of the test text")
-
     class cache:
         directory           = F(str,  default=".cache", help="Directory to store cache files")
         load_query2docs     = F(bool, default=False, help="Load query2docs cache")

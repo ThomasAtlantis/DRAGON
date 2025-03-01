@@ -30,6 +30,11 @@ log(y)&=\log \sum_{k} \frac{\exp(w^k)}{\sum_i \exp(w^i)}\cdot \frac{\exp(z^k)}{\
 |           |           |          |4_concat|2.7070 |
 |           |           |          |10      |2.6899 |
 |           |           |          |16      |       |
+## Sequence-wise vs. Token-wise
+| query | output_seq | output_tok |
+| --- | --- | --- |
+| I love China, because | it is the people . I love of the world . love the food . | it's so different from the rest of the world. I love the way |
+| when did us get involved in vietnam war | ?\n\n been fighting in vietnam in Vietnam than the yearss | ?\n\nThe United States entered the Vietnam War in 1965, when the |
 
 ## TODO List
 ### Logic
@@ -40,8 +45,4 @@ log(y)&=\log \sum_{k} \frac{\exp(w^k)}{\sum_i \exp(w^i)}\cdot \frac{\exp(z^k)}{\
 - [ ] Scheduling algorithm
 
 ### Optimization
-- [x] Rename decoder to RAG
-- [x] Decouple the evaluator from decoder
-- [x] Remove position information
 - [ ] Batch the output ensemble
-- [x] Decoupling decoding and evaluation

@@ -1,8 +1,13 @@
+import ipdb
+import numpy as np
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers import PreTrainedModel, PreTrainedTokenizer
 from ..config import DragonConfig
+from ..utils.mlogging import Logger
 from transformers.modeling_outputs import CausalLMOutputWithPast
 import torch
+
+logger = Logger.build(__name__, level="INFO")
 
 class Sampler:
     def __init__(self, config: DragonConfig.sampler):
@@ -11,23 +16,26 @@ class Sampler:
         self.temperature = config.temperature
         self.greedy = not config.do_sample
 
-    def __call__(self, probs: torch.Tensor) -> int:
+    def __call__(self, probs: torch.Tensor) -> np.ndarray:
+        """
+        @param probs: (s_sequence, s_vocab) tensor
+        """
         if self.greedy:
-            return torch.argmax(probs, dim=-1).cpu().item()
-
+            return torch.argmax(probs, dim=-1).cpu().tolist()
         if self.top_k > 0:
-            values, indices = torch.topk(probs, self.top_k)
+            values, indices = torch.topk(probs, self.top_k, dim=-1)
             probs = torch.zeros_like(probs).scatter_(-1, indices, values)
 
         if self.top_p < 1.0:
-            sorted_probs, sorted_indices = torch.sort(probs, descending=True)
+            sorted_probs, sorted_indices = torch.sort(probs, descending=True, dim=-1)
             cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
-            sorted_indices_to_keep = cumulative_probs <= self.top_p
-            sorted_indices_to_remove = sorted_indices_to_keep.ne(1)
-            probs[sorted_indices[sorted_indices_to_remove]] = 0
-
-        next_token_id = torch.multinomial(probs, num_samples=1).unsqueeze(dim=-1)
-        return next_token_id.cpu().item()
+            remove_sorted_indices_mask = cumulative_probs > self.top_p
+            remove_sorted_indices_mask[:, 0] = False  # at least one token should be kept
+            i_indices, j_indices = torch.where(remove_sorted_indices_mask)
+            vocab_indices = sorted_indices[i_indices, j_indices]
+            probs[i_indices, vocab_indices] = 0
+        next_token_id = torch.multinomial(probs, num_samples=1).squeeze(-1)
+        return next_token_id.cpu().tolist()
 
 class Generator:
 
@@ -50,4 +58,10 @@ class Generator:
         with torch.inference_mode():
             output = self.model(
                 input_ids, return_dict=True, use_cache=True, **kwargs)
+        return output
+    
+    def generate(self, input_ids: torch.Tensor, **kwargs) -> CausalLMOutputWithPast:  # generation
+        with torch.inference_mode():
+            output = self.model.generate(
+                input_ids, return_dict_in_generate=True, use_cache=True, **kwargs)
         return output
