@@ -43,9 +43,7 @@ class Retriever():
         self.model = self.model.to(torch.device(config.device))
         if config.fp16: self.model = self.model.half()
 
-    def prepare_retrieval(self):
-        config = self.config
-        
+    def prepare_retrieval(self, config: DragonConfig):
         # Indexer initialization
         self.indexer = Indexer(config.indexer.s_embedding, config.indexer.n_subquantizers, config.indexer.n_bits)
         embedding_files = sorted(glob.glob(config.retriever.passages_embeddings))

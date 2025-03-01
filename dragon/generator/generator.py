@@ -44,7 +44,9 @@ class Generator:
         self.device = torch.device(config.device)
         self.sampler = Sampler(config.sampler)
         self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
-            model_name, device_map="cpu", torch_dtype=torch.float16).eval()
+            model_name, device_map="cpu", torch_dtype=torch.float16, 
+            # attn_implementation="flash_attention_2"
+        ).eval()
         self.tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
             model_name, add_bos_token=False, add_eos_token=False)  # removing bos/eos tokens is crucial
         self.model.to(self.device)
