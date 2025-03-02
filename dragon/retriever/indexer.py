@@ -73,6 +73,7 @@ class Indexer(object):
 
     def _add_embeddings(self, embeddings: np.ndarray, ids: List[int], batch_size: int):
         end_idx = min(batch_size, embeddings.shape[0])
+        logger.info(f'Indexing {end_idx}/{embeddings.shape[0]} embeddings ...')
         self._index_data(ids[:end_idx], embeddings[:end_idx])
         return embeddings[end_idx:], ids[end_idx:]
     

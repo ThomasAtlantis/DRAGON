@@ -30,7 +30,7 @@ class EmbedPassagesConfig(Configure):
 logger = Logger.build(__name__, level="INFO")
 config = EmbedPassagesConfig()
 config.parse_sys_args()
-logger.info(json.dumps(config.as_dict(), indent=2))
+# logger.info(json.dumps(config.as_dict(), indent=2))
 
 def passage_processor(passages):
     for i, passage in enumerate(passages):
@@ -56,12 +56,12 @@ def get_shard(passages):
 def main():
     retriever = Retriever(config)
     passages = get_shard(data_utils.load_passages(
-        config.retriever.passages, config.retriever.s_passage_chunk, cache_path=config.cache.directory))
+        config.retriever.passages, config.retriever.s_passage, 
+        cache_path=config.cache.directory))
     allids = [passage['id'] for passage in passages]
     allembeddings = retriever.embed_texts(
         passages, batch_size=config.retriever.bs_encode, 
-        text_size=config.retriever.s_passage,
-        post_processor=passage_processor
+        post_processor=passage_processor, progress=True
     )
 
     save_file = Path(config.output_dir) / f'{config.prefix}_{config.shard_id:02d}.pkl'

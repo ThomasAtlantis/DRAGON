@@ -9,6 +9,9 @@ class Logger(metaclass=SingletonType):
     def build(logger_name: str, level="NOTSET"):
         logger = logging.getLogger(logger_name)
         logger.setLevel(level)
-        logger.addHandler(RichHandler())
+        formatter = logging.Formatter(datefmt="[%X]")
+        handler = RichHandler(markup=True)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
         logger.propagate = False
         return logger

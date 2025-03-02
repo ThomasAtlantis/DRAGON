@@ -29,7 +29,7 @@ class Cache:
     def __contains__(self, key):
         return key in self.cache
     
-    def __del__(self):
+    def flush(self):
         if self.dump_cache:
             with open(self.file, "wb") as f:
                 pickle.dump(self.cache, f)

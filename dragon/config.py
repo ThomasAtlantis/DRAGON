@@ -10,11 +10,9 @@ class DragonConfig(Configure):
     class retriever:
         model               = F(str,  default="contriever", help="The retriever class defined in dragon/retriever/models")
         bs_encode           = F(int,  default=512,   help="Batch size for encoding")
-        s_passage           = F(int,  default=512,   help="Number of tokens in a passage sequence")
-        s_passage_chunk     = F(int,  default=64,    help="Maximum number of words in a chunk")
+        s_passage           = F(int,  default=64,    help="Number of words in a passage")
         s_aggregate         = F(int,  default=0,     help="Number of documents to retrieve per questions")
         n_docs              = F(int,  default=10,    help="Number of documents to retrieve per questions")
-        s_query             = F(int,  default=128,   help="Maximum number of tokens in a query")
         s_context           = F(int,  default=256,   help="Maximum number of tokens in a context")
         passages            = F(str,  required=True, help="Passage file with suffix in ['.tsv', '.jsonl'] or"
                                                          "Hugging Face RepoID and DatasetID, split with comma")
@@ -24,7 +22,7 @@ class DragonConfig(Configure):
         s_embedding         = F(int,  default=768,   help="The embedding dimension for indexing")
         n_subquantizers     = F(int,  default=0,     help="Number of subquantizer used for vector quantization, if 0 flat index is used")
         n_bits              = F(int,  default=8,     help="Number of bits per subquantizer")
-        bs_indexing         = F(int,  default=1e6,   help="Batch size of the number of passages indexed")
+        bs_indexing         = F(int,  default=100000,help="Batch size of the number of passages indexed")
         
     class text:
         with_title          = F(bool, default=False, help="Add title to the passage body")

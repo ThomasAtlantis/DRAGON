@@ -4,6 +4,7 @@
 .conda/
 .notes/
 .cache/
+.VSCodeCounter/
 /data
 /outputs
 /test*

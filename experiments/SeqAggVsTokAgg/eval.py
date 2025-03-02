@@ -4,12 +4,12 @@ python -u run.py \
     --retriever.passages "Salesforce/wikitext,wikitext-2-raw-v1" \
     --retriever.passages_embeddings "data/wikitext2/*.pkl" \
     --retriever.s_context 128 \
-    --retriever.n_docs 2 \
-    --retriever.s_aggregate 2 \
+    --retriever.n_docs 4 \
+    --retriever.s_aggregate 4 \
     --generator.model "facebook/opt-1.3b"  \
     --generator.s_sequence 896 \
     --cache.load_index \
-    --evaluator.max_new_tokens 15
+    --evaluator.max_new_tokens 100
 """
 
 from dragon.config import DragonConfig
@@ -34,8 +34,8 @@ class SeqAggVsTokAggEvaluator(Evaluator):
     def evaluate(self):
         results = []
         queries = [
-            "I love China, because",
-            "when did us get involved in vietnam war"
+            "Carbon dioxide is",
+            "Ernest Miller Hemingway was"
         ]
         for query in queries:
             query_ids = self.tokenizer.encode(query)

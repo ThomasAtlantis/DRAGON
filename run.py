@@ -1,4 +1,6 @@
 import sys; sys.path.append(".")
+from dragon.utils.stable import seed_everything
+seed_everything(42)
 
 # Language Modeling
 from experiments.LanguageModeling.eval import (
@@ -18,3 +20,4 @@ if __name__ == "__main__":
     config.parse_sys_args()
     evaluator = Evaluator(config)
     evaluator.evaluate()
+    # evaluator.compute_doc_len()

@@ -64,3 +64,40 @@ class LanguageModelingEvaluator(Evaluator):
         result = float(self.metric.compute())
         self.logger.info(f"{self.metric.__class__.__name__}: {result:.4f}")
         self.save_output({"cross_entropy": result})
+        if retriever := self.rag.retriever: retriever.query2docs.flush()
+
+    def compute_doc_len(self):
+        from dragon.rag import group_docs
+        """
+        HF_ENDPOINT=https://hf-mirror.com \
+        python -u run.py \
+            --retriever.passages "Salesforce/wikitext,wikitext-2-raw-v1" \
+            --retriever.passages_embeddings "data/wikitext2/*.pkl" \
+            --generator.model "facebook/opt-1.3b"  \
+            --evaluator.output_dir "outputs/" \
+            --evaluator.dataset "Salesforce/wikitext,wikitext-2-raw-v1" \
+            --cache.load_index
+        """
+        retriever = self.rag.retriever
+        doc_lens_list = []
+        for n_docs, aggregate_size in [
+            (1, 1), (2, 2), (4, 4), (8, 8), (16, 16), (4, 1), (4, 2), (8, 2)
+            ]:
+            doc_lens = []
+            retriever.n_docs = n_docs
+            retriever.query2docs.cache.clear()
+            for query_ids, *_ in self.data_loader():
+                query = self.tokenizer.decode(query_ids)
+                docs, scores = retriever.retrieve_passages([query])[0]
+                doc_texts = [doc["text"] for doc in docs]
+                doc_texts, scores = group_docs(doc_texts, scores, aggregate_size)
+                doc_ids = self.tokenizer.batch_encode_plus(
+                    doc_texts, padding='longest', return_tensors='pt')['input_ids']
+                doc_lens.append(doc_ids.size(1))
+            avg_doc_len = sum(doc_lens) / len(doc_lens) if doc_lens else 0
+            self.logger.info(f"n_docs: {n_docs}, s_aggregate: {aggregate_size}, avg_doc_len: {avg_doc_len}")
+            doc_lens_list.append({
+                "n_docs": n_docs, "s_aggregate": aggregate_size, 
+                "avg_doc_len": avg_doc_len, "doc_lens": doc_lens
+            })
+        self.save_output(doc_lens_list)

@@ -4,6 +4,7 @@ import copy
 import torch
 
 from typing import List, Dict, Protocol
+from tqdm import trange
 from transformers import PreTrainedTokenizer, PreTrainedModel
 
 from ..utils.data_process.data_utils import load_passages
@@ -35,6 +36,9 @@ class Retriever():
         self.config = config
         self.model: PreTrainedModel
         self.tokenizer: PreTrainedTokenizer
+        self.n_docs = config.retriever.n_docs
+        self.bs_encode = config.retriever.bs_encode
+        assert self.n_docs >= config.retriever.s_aggregate, "Not enough documents for aggregation."
 
         # Model and Tokenizer initialization
         retriever_module = importlib.import_module(
@@ -50,7 +54,7 @@ class Retriever():
         self.indexer.index_embeddings(embedding_files, config.indexer.bs_indexing, config.cache.load_index, config.cache.dump_index)
         
         # Inverted index for passages
-        passages = load_passages(config.retriever.passages, config.retriever.s_passage_chunk, config.cache.directory)
+        passages = load_passages(config.retriever.passages, config.retriever.s_passage, config.cache.directory)
         self.id2passage: Dict[str, Dict] = {x['id']: x for x in passages}
 
         # Retrieval cache
@@ -58,15 +62,16 @@ class Retriever():
             "query2docs", config.cache.load_query2docs, 
             config.cache.dump_query2docs, config.cache.directory)
         
-    def embed_texts(self, texts: List[str], batch_size: int, text_size: int, post_processor: TextProcessor = None):
+    def embed_texts(self, texts: List[str], batch_size: int, post_processor: TextProcessor = None, progress=False):
         embeddings = []
         with torch.inference_mode():
-            for i in range(0, len(texts), batch_size):
+            range_function = trange if progress else range
+            for i in range_function(0, len(texts), batch_size):
                 batch_text = texts[i:i + batch_size]
                 if post_processor is not None: 
                     batch_text = post_processor(batch_text)
                 encoded_batch = self.tokenizer.batch_encode_plus(
-                    batch_text, return_tensors="pt", max_length=text_size, padding=True, truncation=True)
+                    batch_text, return_tensors="pt", padding='longest')
                 embeddings.append(self.model(**{k: v.cuda() for k, v in encoded_batch.items()}))
         embeddings = torch.cat(embeddings, dim=0).cpu().numpy()
         return embeddings
@@ -91,7 +96,9 @@ class Retriever():
     
     def retrieve_passages(self, queries: List[str]):
         if len(queries) == 1 and queries[0] in self.query2docs:
-            return [self.query2docs.get(queries[0])]
+            docs, scores = self.query2docs.get(queries[0])
+            docs, scores = docs[:self.n_docs], scores[:self.n_docs]
+            return [(docs, scores)]
         else:
             def query_processor(query_batch):
                 if self.config.text.normalize:
@@ -100,12 +107,11 @@ class Retriever():
                 return query_batch
 
             query_embeddings = self.embed_texts(
-                queries, batch_size=self.config.retriever.bs_encode,
-                text_size=self.config.retriever.s_query, 
+                queries, batch_size=self.bs_encode,
                 post_processor=query_processor)
             
             with time_meter.timer("retrieval"):
-                doc_ids, scores = self.indexer.search_knn(query_embeddings, self.config.retriever.n_docs)
+                doc_ids, scores = self.indexer.search_knn(query_embeddings, self.n_docs)
             assert(len(doc_ids) == len(queries) and len(scores) == len(queries))
             logger.debug(f"Retrieval finished in {time_meter.timer('retrieval').duration * 1e3:.1f} ms.")
             

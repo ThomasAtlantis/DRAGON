@@ -1,15 +1,41 @@
 import csv
+import json
+import re
 import datasets
+from datasets import Dataset
 from tqdm import tqdm
 from pathlib import Path
-import json
-from typing import List, NamedTuple
-Token = int
+from typing import List, NamedTuple, Dict
 
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain.schema import Document
 from ..cache import file_cache
 from ..mlogging import Logger
 
 logger = Logger.build(__name__, level="INFO")
+
+
+def parse_wikitext(dataset: Dataset) -> List[Dict]:
+    title_stack, chunks = [], []
+    dataset_size = len(dataset)
+    current_chunk = {"text": [], "start": 0, "end": 0}
+    title_pattern = re.compile(r'^([=\s]+)(.*?)([\s=]+)$')
+    for line_num, line in enumerate(dataset):
+        line = line['text'].strip()
+        if title_match := title_pattern.match(line):
+            level = len(title_match.group(1)) // 2 - 1
+            title = title_match.group(2).strip()
+            title_stack = title_stack[:level]
+            title_stack.append(title)
+        elif line:
+            current_chunk["text"].append(line)
+        
+        if (title_match or line_num == dataset_size - 1) and current_chunk["text"]:
+            current_chunk["end"] = line_num - 1
+            current_chunk["title"] = ', '.join(title_stack)
+            chunks.append(current_chunk)
+            current_chunk = {"text": [], "start": line_num + 1}
+    return chunks
 
 def chunkify(dataset, n):
     passages = []
@@ -21,6 +47,31 @@ def chunkify(dataset, n):
                 "text": " ".join(text[i: i + n]),
                 "id": len(passages)
             })
+    return passages
+
+def chunkify_v2(dataset, chunk_size):
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size, length_function=lambda x: len(x.split()),
+        separators=["\n", ".", "!", "?", ";", ",", " "]
+    )
+    docs = [
+        Document(
+            page_content='\n'.join(item["text"]), 
+            title=item["title"]
+        ) for item in parse_wikitext(dataset)
+    ]
+    docs = text_splitter.split_documents(docs)
+
+    # from langchain_community.document_transformers import EmbeddingsRedundantFilter
+    # from langchain_huggingface import HuggingFaceEmbeddings
+    # redundant_filter = EmbeddingsRedundantFilter(
+    #     embeddings=HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2"))
+    # docs = redundant_filter.transform_documents(docs)
+
+    passages = [
+        { "text": doc.page_content, "id": i } for i, doc in enumerate(docs)
+    ]
+    logger.info(f"Chunkified {len(docs)} documents into {len(passages)} passages.")
     return passages
 
 
@@ -59,9 +110,9 @@ def load_passages(passages, chunk_size, cache_path=".cache"):
 
 
 class DataSample(NamedTuple):
-    query: List[Token]
-    input: List[Token]
-    label: List[Token]
+    query: List[int]
+    input: List[int]
+    label: List[int]
 
 
 def tokens_to_contextual_lm_samples_total(token_list, max_seq_len, prefix_len):
@@ -72,8 +123,8 @@ def tokens_to_contextual_lm_samples_total(token_list, max_seq_len, prefix_len):
 
 
 def tokens_to_contextual_lm_samples(
-        token_list: List[Token], 
-        bos_token: Token, 
+        token_list: List[int], 
+        bos_token: int, 
         max_seq_len: int, 
         prefix_len: int
     ):
@@ -114,8 +165,8 @@ def tokens_to_contextual_lm_samples(
         yield extract_context(i, i + pred_len)
 
 def ContextualLMSampleLoader(
-    token_list: List[Token], 
-    bos_token: Token, 
+    token_list: List[int], 
+    bos_token: int, 
     max_seq_len: int, 
     prefix_len: int):
     from functools import partial

@@ -10,6 +10,7 @@ from dragon.utils.mlogging import Logger
 class Evaluator:
     def __init__(self, config: DragonConfig, name: str = None):
         self.logger = Logger.build(__class__.__name__, level="INFO")
+        self.logger.info(f"Evaluation of `{name}` starts.")
         self.run_id = name + "-" + datetime.now().strftime("%Y%m%d%H%M%S")
         self.config = config.evaluator
         self.config_dict = config.as_dict()

@@ -11,6 +11,21 @@ from .utils.meter import TimeMeter
 logger = Logger.build(__name__, level="INFO")
 time_meter = TimeMeter()
 
+
+def group_docs(docs: List[str], scores: List[float], s_aggregate: int) -> Tuple[List[str], List[float]]:
+    """
+    Group documents into s_aggregate number of documents.
+    """
+    chunk_size = len(docs) // s_aggregate
+    if chunk_size == 0:
+        logger.info(f"{len(scores)=} {s_aggregate=}")
+    chunk_scores, chunk_docs = [], []
+    for i in range(s_aggregate):
+        beg, end = i * chunk_size, (i + 1) * chunk_size
+        chunk_docs.append('\n'.join(docs[beg: end]))
+        chunk_scores.append(sum(scores[beg: end]) / chunk_size)
+    return chunk_docs, chunk_scores
+
 class RagForGeneration:
 
     def __init__(self, config: DragonConfig):
@@ -19,7 +34,6 @@ class RagForGeneration:
         self.retriever = None 
         self.do_retrieval = config.retriever.n_docs > 0
         self.device = torch.device(config.device)
-        self.enable_aggregate: bool = config.retriever.s_aggregate > 0
         self.context_size: int = config.retriever.s_context
         self.aggregate_size: int = config.retriever.s_aggregate
         
@@ -38,14 +52,11 @@ class RagForGeneration:
 
         with time_meter.timer("Tokenization"):
             doc_texts = [doc["text"] for doc in docs]
-            if not self.enable_aggregate:
-                scores, doc_texts = [1], ["\n".join(doc_texts)]
-            doc_texts = doc_texts[: self.aggregate_size]
+            doc_texts, scores = group_docs(doc_texts, scores, self.aggregate_size)
             doc_ids = self.generator.tokenizer.batch_encode_plus(
-                doc_texts, max_length=self.context_size,
-                padding='max_length', truncation=True,
-                return_tensors='pt', return_attention_mask=False
-            )['input_ids']
+                doc_texts, padding='longest', return_tensors='pt')['input_ids']
+            doc_ids = doc_ids[:, : self.context_size]
+
             input_ids = torch.as_tensor(
                 input_ids, dtype=torch.long).repeat(self.aggregate_size, 1)
             query_ids = torch.as_tensor(
