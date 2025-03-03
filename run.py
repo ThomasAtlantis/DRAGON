@@ -3,16 +3,16 @@ from dragon.utils.stable import seed_everything
 seed_everything(42)
 
 # Language Modeling
-from experiments.LanguageModeling.eval import (
-    LanguageModelingEvaluator as Evaluator, 
-    LanguageModelingConfig as Config
-)
+# from experiments.LanguageModeling.eval import (
+#     LanguageModelingEvaluator as Evaluator, 
+#     LanguageModelingConfig as Config
+# )
 
 # RagSequenceForGeneration vs. RagTokenForGeneration
-# from experiments.SeqAggVsTokAgg.eval import (
-#     SeqAggVsTokAggEvaluator as Evaluator,
-#     SeqAggVsTokAggConfig as Config
-# )
+from experiments.SeqAggVsTokAgg.eval import (
+    SeqAggVsTokAggEvaluator as Evaluator,
+    SeqAggVsTokAggConfig as Config
+)
 
 
 if __name__ == "__main__":

@@ -34,6 +34,12 @@ class DragonConfig(Configure):
     class generator:
         model               = F(str,  required=True, help="Path to the model configuration file")
         s_sequence          = F(int,  default=896,   help="")
+
+    class reranker:
+        do_rerank           = F(bool, default=False, help="If enabled, rerank the documents")
+        model               = F(str,  default="cross-encoder/ms-marco-MiniLM-L-6-v2", help="The reranker model name")
+        period              = F(int,  default=0,     help="Number of steps between reranking")
+        momentum            = F(float,default=0.0,   help="Weight to preserve the previous scores")
     
     class sampler:
         do_sample           = F(bool, default=False, help="If enabled, use sampling instead of greedy decoding")

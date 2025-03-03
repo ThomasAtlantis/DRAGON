@@ -43,6 +43,7 @@ class Generator:
         model_name = config.generator.model
         self.device = torch.device(config.device)
         self.sampler = Sampler(config.sampler)
+        
         self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
             model_name, device_map="cpu", torch_dtype=torch.float16, 
             # attn_implementation="flash_attention_2"
@@ -56,14 +57,26 @@ class Generator:
         self.context_switching_id = self.tokenizer.convert_tokens_to_ids(["<|endoftext|>"])[0]
         self.max_seq_len = min(config.generator.s_sequence, self.model.config.max_position_embeddings)
     
-    def __call__(self, input_ids: torch.Tensor, **kwargs) -> CausalLMOutputWithPast:  # prefilling
+    def __call__(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, **kwargs) -> CausalLMOutputWithPast:  # prefilling
         with torch.inference_mode():
             output = self.model(
-                input_ids, return_dict=True, use_cache=True, **kwargs)
+                input_ids=input_ids, 
+                attention_mask=attention_mask, 
+                pad_token_id=self.model.config.eos_token_id,
+                return_dict=True, 
+                use_cache=True, 
+                **kwargs
+            )
         return output
     
-    def generate(self, input_ids: torch.Tensor, **kwargs) -> CausalLMOutputWithPast:  # generation
+    def generate(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, **kwargs) -> CausalLMOutputWithPast:  # generation
         with torch.inference_mode():
             output = self.model.generate(
-                input_ids, return_dict_in_generate=True, use_cache=True, **kwargs)
+                input_ids=input_ids, 
+                attention_mask=attention_mask,
+                pad_token_id=self.model.config.eos_token_id, 
+                return_dict_in_generate=True, 
+                use_cache=True, 
+                **kwargs
+            )
         return output

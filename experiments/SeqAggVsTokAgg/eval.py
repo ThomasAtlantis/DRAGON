@@ -1,15 +1,15 @@
 """
 HF_ENDPOINT=https://hf-mirror.com \
 python -u run.py \
-    --retriever.passages "Salesforce/wikitext,wikitext-2-raw-v1" \
-    --retriever.passages_embeddings "data/wikitext2/*.pkl" \
+    --retriever.passages "Salesforce/wikitext,wikitext-103-raw-v1" \
+    --retriever.passages_embeddings "data/wikitext103/*.pkl" \
     --retriever.s_context 128 \
-    --retriever.n_docs 4 \
-    --retriever.s_aggregate 4 \
+    --retriever.n_docs 8 \
+    --retriever.s_aggregate 8 \
     --generator.model "facebook/opt-1.3b"  \
     --generator.s_sequence 896 \
     --cache.load_index \
-    --evaluator.max_new_tokens 100
+    --evaluator.max_new_tokens 200
 """
 
 from dragon.config import DragonConfig
@@ -34,16 +34,19 @@ class SeqAggVsTokAggEvaluator(Evaluator):
     def evaluate(self):
         results = []
         queries = [
-            "Carbon dioxide is",
-            "Ernest Miller Hemingway was"
+            # '''Fill in the blank. Questions: (1) United States: ____; (2) China: ____. Answers: '''
+            # '''(1) New York City, the "Big Apple," is a global hub of finance, culture, and innovation, famous for its towering skyscrapers, Broadway, Times Square, and its vibrant, fast-paced lifestyle. '''
+            # '''(2) Beijing, China's historic and political heart, blends ancient wonders like the Forbidden City and the Great Wall with modern skyscrapers, showcasing a rich cultural heritage and rapid innovation. '''
+            # '''Questions: (1) France: ____; (2) India: ____. Answers: ''',
+            '''Here's all provinces and their capitals in China: ''',
         ]
         for query in queries:
             query_ids = self.tokenizer.encode(query)
 
-            output_ids_seq, _ = self.rag_seq.generate(query_ids, [], max_new_tokens=self.max_new_tokens)
+            output_ids_seq, _ = self.rag_seq.generate(query_ids, max_new_tokens=self.max_new_tokens)
             output_seq = self.tokenizer.decode(output_ids_seq, skip_special_tokens=True)
             
-            output_ids_tok, _ = self.rag_tok.generate(query_ids, [], max_new_tokens=self.max_new_tokens)
+            output_ids_tok, _ = self.rag_tok.generate(query_ids, max_new_tokens=self.max_new_tokens)
             output_tok = self.tokenizer.decode(output_ids_tok, skip_special_tokens=True)
 
             self.logger.info(f"Query: {query}")
