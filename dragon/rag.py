@@ -1,3 +1,4 @@
+import pickle
 import torch
 from typing import List, Tuple
 from sentence_transformers import CrossEncoder
@@ -168,6 +169,9 @@ class RagTokenForGeneration(RagForGeneration):
         scores_list = []  # for debugging
         pbar = tqdm(total=max_new_tokens, desc="Generating", leave=False, initial=0)
         context_input_ids, attention_mask, scores = self._prepare_inputs_for_generation(query_ids, [])
+        with open("logs/docs.pkl", "wb") as f:
+            docs = self.generator.tokenizer.batch_decode(context_input_ids)
+            pickle.dump(docs, f)
         scores_list.append(scores)
 
         # Pre-fill the context
@@ -191,7 +195,8 @@ class RagTokenForGeneration(RagForGeneration):
         pbar.close()
         logprobs = torch.vstack(logprobs)    # (max_new_tokens, s_vocab)
         scores_list = torch.vstack(scores_list).exp()  # (max_new_tokens, s_aggregate)
-        torch.save(scores_list.cpu(), "scores.pt")
+        with open("logs/scores.pkl", "wb") as f:
+            pickle.dump(scores_list.cpu().tolist(), f)
         return output_ids, logprobs
     
 class RagSequenceForGeneration(RagForGeneration):

@@ -38,7 +38,7 @@ class SeqAggVsTokAggEvaluator(Evaluator):
             # '''(1) New York City, the "Big Apple," is a global hub of finance, culture, and innovation, famous for its towering skyscrapers, Broadway, Times Square, and its vibrant, fast-paced lifestyle. '''
             # '''(2) Beijing, China's historic and political heart, blends ancient wonders like the Forbidden City and the Great Wall with modern skyscrapers, showcasing a rich cultural heritage and rapid innovation. '''
             # '''Questions: (1) France: ____; (2) India: ____. Answers: ''',
-            '''Here's all provinces and their capitals in China: ''',
+            '''Python and C++ are two popular programming languages. ''',
         ]
         for query in queries:
             query_ids = self.tokenizer.encode(query)
