@@ -82,7 +82,7 @@ class RagForGeneration:
         Given query_ids and input_ids, return the next token logprobs of each input_id.
         """
         if not self.do_retrieval or len(query_ids) == 0:
-            input_ids = torch.as_tensor(query_ids + input_ids, dtype=torch.long).to(self.device)
+            input_ids = torch.as_tensor(query_ids + input_ids, dtype=torch.long).to(self.device).unsqueeze(0)
             output = self.generator(input_ids=input_ids, attention_mask=torch.ones_like(input_ids))
             logprobs = torch.log_softmax(output.logits[0, len(query_ids):], dim=-1)
             return logprobs
