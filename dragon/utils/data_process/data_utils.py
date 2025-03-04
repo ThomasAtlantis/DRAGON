@@ -15,27 +15,32 @@ from ..mlogging import Logger
 logger = Logger.build(__name__, level="INFO")
 
 
-def parse_wikitext(dataset: Dataset) -> List[Dict]:
-    title_stack, chunks = [], []
+def parse_wikitext(dataset: Dataset, depth=2):
+    title_stack = []
     dataset_size = len(dataset)
     current_chunk = {"text": [], "start": 0, "end": 0}
     title_pattern = re.compile(r'^([=\s]+)(.*?)([\s=]+)$')
-    for line_num, line in enumerate(dataset):
+    end_block = False
+    for line_num, line in enumerate(tqdm(dataset, desc="Parsing WikiText")):
         line = line['text'].strip()
         if title_match := title_pattern.match(line):
             level = len(title_match.group(1)) // 2 - 1
-            title = title_match.group(2).strip()
-            title_stack = title_stack[:level]
-            title_stack.append(title)
+            if level > depth:
+                current_chunk["text"].append(line)
+            else:    
+                title = title_match.group(2).strip()
+                title_stack = title_stack[:level]
+                title_stack.append(title)
+                end_block = True
         elif line:
             current_chunk["text"].append(line)
         
-        if (title_match or line_num == dataset_size - 1) and current_chunk["text"]:
+        if (end_block or line_num == dataset_size - 1) and current_chunk["text"]:
             current_chunk["end"] = line_num - 1
             current_chunk["title"] = ', '.join(title_stack)
-            chunks.append(current_chunk)
+            yield current_chunk
             current_chunk = {"text": [], "start": line_num + 1}
-    return chunks
+            end_block = False
 
 def chunkify(dataset, n):
     passages = []
@@ -49,18 +54,22 @@ def chunkify(dataset, n):
             })
     return passages
 
-def chunkify_v2(dataset, chunk_size):
+def chunkify_v2(dataset, chunk_size):  # Poor performance, never use this!
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size, length_function=lambda x: len(x.split()),
-        separators=["\n", ".", "!", "?", ";", ",", " "]
+        chunk_overlap=0, separators=[" ", ",", ".", "!", "?", ";"]
     )
-    docs = [
-        Document(
-            page_content='\n'.join(item["text"]), 
+    docs = []
+    for item in parse_wikitext(dataset):
+        content = '\n'.join(item["text"])
+        if len(content.split()) < chunk_size:
+            continue
+        docs.append(Document(
+            page_content=content, 
             title=item["title"]
-        ) for item in parse_wikitext(dataset)
-    ]
+        ))
     docs = text_splitter.split_documents(docs)
+    docs = [doc for doc in docs if len(doc.page_content.split()) >= chunk_size * 0.8]
 
     # from langchain_community.document_transformers import EmbeddingsRedundantFilter
     # from langchain_huggingface import HuggingFaceEmbeddings

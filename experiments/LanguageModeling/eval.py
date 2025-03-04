@@ -45,6 +45,7 @@ class LanguageModelingEvaluator(Evaluator):
         )["text"]
         self.tokenizer = self.rag.generator.tokenizer
         self.metric = CrossEntropy(device=config.device)
+        self.template = "{doc_text}{query}{input_text}"
     
     def data_loader(self):
         for i in tqdm(range(0, len(self.data), self.config.s_block)):
@@ -59,7 +60,7 @@ class LanguageModelingEvaluator(Evaluator):
     def evaluate(self):
         self.metric.reset()
         for query_ids, input_ids, label_ids in self.data_loader():
-            logprobs = self.rag(query_ids, input_ids)
+            logprobs = self.rag(query_ids, input_ids, template=self.template)
             self.metric.update(logprobs=logprobs, labels=label_ids)
         result = float(self.metric.compute())
         self.logger.info(f"{self.metric.__class__.__name__}: {result:.4f}")

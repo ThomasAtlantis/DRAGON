@@ -30,6 +30,9 @@ class SeqAggVsTokAggEvaluator(Evaluator):
         self.rag_tok = RagTokenForGeneration(config)
         self.tokenizer = self.rag_seq.generator.tokenizer
         self.max_new_tokens = config.evaluator.max_new_tokens
+        self.template = "Context information is below.\n" \
+            "---------------------\n{doc_text}\n---------------------\n" \
+            "Given the context information, continue the following sentence: {query}{input_text}" 
 
     def evaluate(self):
         results = []
@@ -43,10 +46,10 @@ class SeqAggVsTokAggEvaluator(Evaluator):
         for query in queries:
             query_ids = self.tokenizer.encode(query)
 
-            output_ids_seq, _ = self.rag_seq.generate(query_ids, max_new_tokens=self.max_new_tokens)
+            output_ids_seq, _ = self.rag_seq.generate(query_ids, max_new_tokens=self.max_new_tokens, template=self.template)
             output_seq = self.tokenizer.decode(output_ids_seq, skip_special_tokens=True)
             
-            output_ids_tok, _ = self.rag_tok.generate(query_ids, max_new_tokens=self.max_new_tokens)
+            output_ids_tok, _ = self.rag_tok.generate(query_ids, max_new_tokens=self.max_new_tokens, template=self.template)
             output_tok = self.tokenizer.decode(output_ids_tok, skip_special_tokens=True)
 
             self.logger.info(f"Query: {query}")
