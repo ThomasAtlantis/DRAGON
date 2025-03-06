@@ -60,7 +60,7 @@ class RagForGeneration:
             doc_texts, scores = group_docs(doc_texts, scores, self.aggregate_size)
             
             doc_texts = [
-                self.generator.tokenizer.batch_decode(self.generator.tokenizer.encode(doc_text)[: self.context_size])
+                self.generator.tokenizer.decode(self.generator.tokenizer.encode(doc_text)[: self.context_size])
                 for doc_text in doc_texts
             ]
             input_text_list = [
