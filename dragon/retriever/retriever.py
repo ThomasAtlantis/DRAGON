@@ -1,6 +1,8 @@
+from functools import partial
 import importlib
 import glob
 import copy
+from pathlib import Path
 import torch
 
 from typing import List, Dict, Protocol
@@ -58,14 +60,15 @@ class Retriever():
         self.id2passage: Dict[str, Dict] = {x['id']: x for x in passages}
 
         # Retrieval cache
+        _, dataset_id = config.retriever.passages.split(",")
         self.query2docs = Cache(
             "query2docs", config.cache.load_query2docs, 
-            config.cache.dump_query2docs, config.cache.directory)
+            config.cache.dump_query2docs, Path(config.cache.directory) / dataset_id)
         
     def embed_texts(self, texts: List[str], batch_size: int, post_processor: TextProcessor = None, progress=False):
         embeddings = []
         with torch.inference_mode():
-            range_function = trange if progress else range
+            range_function = partial(trange, desc="Encoding texts", leave=False) if progress else range
             for i in range_function(0, len(texts), batch_size):
                 batch_text = texts[i:i + batch_size]
                 if post_processor is not None: 

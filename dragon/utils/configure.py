@@ -1,4 +1,3 @@
-from .singleton import SingletonType
 from argparse import ArgumentParser
 from rich_argparse import RichHelpFormatter
 from ast import literal_eval
@@ -77,7 +76,7 @@ class Field:
         if self.type in [typing.Tuple, typing.List, tuple, list]:
             self.type = lambda x: literal_eval(x)
     
-class Configure(metaclass=SingletonType):
+class Configure:
         
     def __init__(self):    
         for clas in get_classes(self.__class__):
