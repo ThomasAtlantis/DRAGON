@@ -50,6 +50,7 @@ class Generator:
         ).eval()
         self.tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
             model_name, add_bos_token=False, add_eos_token=False)  # removing bos/eos tokens is crucial
+        self.tokenizer.padding_side = "left"
         self.model.to(self.device)
         # The token <|endoftext|> serves as a content separator between distinct 'texts' 
         # within the training data for GPT-2 (and likely GPT-3 as well). By using this token, 
