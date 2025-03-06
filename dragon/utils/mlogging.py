@@ -1,9 +1,8 @@
 import logging
-from .singleton import SingletonType
 from rich.logging import RichHandler
 
 
-class Logger(metaclass=SingletonType):
+class Logger:
 
     @staticmethod
     def build(logger_name: str, level="NOTSET"):
