@@ -1,19 +1,31 @@
 import csv
 import json
-import re
 import datasets
-from datasets import Dataset
 from tqdm import tqdm
 from pathlib import Path
-from typing import List, NamedTuple, Dict
-
+from typing import List, NamedTuple
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema import Document
+from datasets import Dataset
+import re
+
 from ..cache import file_cache
 from ..mlogging import Logger
 
 logger = Logger.build(__name__, level="INFO")
 
+
+def chunkify(dataset, n):
+    passages = []
+    for line in tqdm(dataset, desc="Chunkifying", leave=False):
+        text = line["text"].split()
+        if len(text) < 10: continue
+        for i in range(0, len(text), n):
+            passages.append({
+                "text": " ".join(text[i: i + n]),
+                "id": len(passages)
+            })
+    return passages
 
 def parse_wikitext(dataset: Dataset, depth=2):
     title_stack = []
@@ -41,18 +53,6 @@ def parse_wikitext(dataset: Dataset, depth=2):
             yield current_chunk
             current_chunk = {"text": [], "start": line_num + 1}
             end_block = False
-
-def chunkify(dataset, n):
-    passages = []
-    for line in tqdm(dataset):
-        text = line["text"].split()
-        if len(text) < 10: continue
-        for i in range(0, len(text), n):
-            passages.append({
-                "text": " ".join(text[i: i + n]),
-                "id": len(passages)
-            })
-    return passages
 
 def chunkify_v2(dataset, chunk_size):  # Poor performance, never use this!
     text_splitter = RecursiveCharacterTextSplitter(
@@ -89,7 +89,7 @@ def load_passages_hf(repo_id, dataset_id, chunk_size, cache_path=".cache"):
     @file_cache(Path(cache_path, dataset_id, "passages.jsonl"))
     def wrapper():
         dataset = datasets.load_dataset(repo_id, dataset_id, split='train')
-        passages = chunkify(dataset, chunk_size)
+        passages = chunkify_v2(dataset, chunk_size)
         return passages
     return wrapper()
 
