@@ -46,6 +46,11 @@ class DragonConfig(Configure):
         temperature         = F(float,default=1.0,   help="Temperature for sampling")
         top_k               = F(int,  default=50,    help="Top-k sampling")
         top_p               = F(float,default=1.0,   help="Top-p sampling")
+    
+    class trans:
+        rank = F(int, default=0, help="Index of the transceiver")
+        tx_port = F(int, default=5555, help="Port for sending data")
+        rx_port = F(int, default=5556, help="Port for receiving data")
 
     class cache:
         directory           = F(str,  default=".cache", help="Directory to store cache files")

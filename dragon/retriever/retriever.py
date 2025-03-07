@@ -17,8 +17,6 @@ from ..utils.meter import TimeMeter
 from ..utils.cache import Cache
 from ..utils.data_process import text_utils
 
-
-logger = Logger.build(__name__, level="INFO")
 time_meter = TimeMeter()
 
 # Or, if you want to support Python 3.7 and below, install the typing_extensions
@@ -34,7 +32,8 @@ class Retriever():
     Retriever class for retrieving data from the database.
     """
 
-    def __init__(self, config: DragonConfig):
+    def __init__(self, config: DragonConfig, logger: Logger):
+        self.logger = logger
         self.config = config
         self.model: PreTrainedModel
         self.tokenizer: PreTrainedTokenizer
@@ -80,7 +79,7 @@ class Retriever():
         return embeddings
     
     def process_docs(self, doc, doc_id: int):
-        logger.debug("Before:", doc["text"])
+        self.logger.debug("Before:", doc["text"])
         if self.config.text.remove_broken_sents:
             doc["text"] = text_utils.remove_broken_sentences(doc["text"])
         # TODO: The sentence rounding approach assumes passages are in consecutive order
@@ -94,7 +93,7 @@ class Retriever():
                     next_doc = self.id2passage[doc_id + 1]
                     second_half = text_utils.get_incomplete_sentence(next_doc["text"], from_end=False)
                     doc["text"] = doc["text"].rstrip() + " " + second_half
-        logger.debug("After:", doc["text"])
+        self.logger.debug("After:", doc["text"])
         return doc
     
     def retrieve_passages(self, queries: List[str]):
@@ -116,7 +115,7 @@ class Retriever():
             with time_meter.timer("retrieval"):
                 doc_ids, scores = self.indexer.search_knn(query_embeddings, self.n_docs)
             assert(len(doc_ids) == len(queries) and len(scores) == len(queries))
-            logger.debug(f"Retrieval finished in {time_meter.timer('retrieval').duration * 1e3:.1f} ms.")
+            self.logger.debug(f"Retrieval finished in {time_meter.timer('retrieval').duration * 1e3:.1f} ms.")
             
             docs_scores = []
             for query, query_doc_ids, query_scores in zip(queries, doc_ids, scores):

@@ -8,6 +8,7 @@
 /data
 /outputs
 /test*
+!/tests/
 /tmp*
 /*.pt
 /logs/
