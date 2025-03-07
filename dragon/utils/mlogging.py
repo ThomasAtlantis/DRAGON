@@ -9,7 +9,7 @@ class Logger:
         logger = logging.getLogger(logger_name)
         logger.setLevel(level)
         formatter = logging.Formatter(
-            fmt=f"[bold yellow1][{logger_name}][/bold yellow1] %(message)s",
+            fmt=f"[bold yellow1]:{logger_name}:[/bold yellow1] %(message)s",
             datefmt="[%X]"
         )
         handler = RichHandler(markup=True, rich_tracebacks=True)

@@ -4,8 +4,9 @@ import time
 from typing import List, Tuple, Protocol
 from dragon.config import DragonConfig
 from dragon.utils.mlogging import Logger
+from logging import Logger as PyLogger
 import threading
-import zmq
+import socket
 
 
 class Message:
@@ -34,25 +35,29 @@ class Message:
 
 class ReceiveListener(threading.Thread):
     def __init__(
-            self, socket: zmq.SyncSocket, 
-            queue: queue.Queue):
+            self, socket: socket.socket, 
+            queue: queue.Queue,
+            buff_size: int, logger: PyLogger):
         threading.Thread.__init__(self)
         self.stop_event = threading.Event()
         self.queue = queue
         self.socket = socket
+        self.socket.listen(1)
+        self.buff_size = buff_size
+        self.logger = logger
 
     def stop(self):
         self.stop_event.set()
 
     def run(self):
+        conn, addr = self.socket.accept()
+        self.logger.info(f"Connection accepted from {addr}")
         while not self.stop_event.is_set():
-            try:
-                data = self.socket.recv()
+            if data := conn.recv(self.buff_size):
+                self.logger.info(f"Received message of size {len(data)}")
                 self.queue.put(data)
-                ack_message = Message.pack(Message.ACK, b"")
-                self.socket.send(ack_message)
-            except zmq.Again:
-                pass
+        self.logger.info("Connection closed.")
+        conn.close()
 
 
 class Observer(Protocol):
@@ -63,18 +68,19 @@ class Observer(Protocol):
 class ReceiveHandler(threading.Thread):
     def __init__(
             self, queue: queue.Queue,
-            observers: List[Observer]):
+            observers: List[Observer], logger: PyLogger):
         threading.Thread.__init__(self)
         self.stop_event = threading.Event()
         self.queue = queue
         self.observers = observers
+        self.logger = logger
 
     def stop(self):
         self.stop_event.set()
     
     def run(self):
         while not self.stop_event.is_set():
-            if not self.queue.empty():  # non-blocking
+            if not self.queue.empty():
                 message = self.queue.get()
                 self.notify(message)
             time.sleep(0.0001)
@@ -82,6 +88,7 @@ class ReceiveHandler(threading.Thread):
     def notify(self, message: bytes):
         mtype, mbody = Message.unpack(message)
         for observer in self.observers:
+            self.logger.info(f"Notifying observer `{observer.__name__}` ...")
             observer(mtype, mbody)
 
 
@@ -92,54 +99,44 @@ class Transceiver:
         self.rank = config.trans.rank
         self.name = f"Node{config.trans.rank:>02}"
         self.logger = Logger.build(self.name, level='INFO')
-        self.context = zmq.Context()
         self.buff_size, self.timeout_ms = 1024, 500
-        self.init_receiver(port=self.config.trans.tx_port)
+        self.init_receiver(port=self.config.trans.rx_port)
         self.logger.info("Receiver initialized.")
-        self.init_sender(port=self.config.trans.rx_port)
+        self.init_sender(port=self.config.trans.tx_port)
         self.logger.info("Sender initialized.")
 
     def init_receiver(self, port):
-        self.rx_socket = self.context.socket(zmq.REP)
-        self.rx_socket.setsockopt(zmq.RCVHWM, self.buff_size)
-        self.rx_socket.bind(f"tcp://localhost:{port}")
+        self.rx_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        while True:
+            try:
+                self.rx_socket.bind(('localhost', port))
+                break
+            except OSError:
+                time.sleep(3)
 
         self.receive_queue = queue.Queue(0)
         self.receive_listener = ReceiveListener(
-            self.rx_socket, self.receive_queue)
+            self.rx_socket, self.receive_queue, self.buff_size, self.logger)
         self.receive_listener.start()
     
     def init_sender(self, port):
-        self.tx_socket = self.context.socket(zmq.REQ)
-        self.tx_socket.setsockopt(zmq.SNDHWM, self.buff_size)
-        self.tx_socket.setsockopt(zmq.RCVTIMEO, self.timeout_ms)
-        self.tx_socket.connect(f"tcp://localhost:{port}")
+        self.tx_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        while True:
+            try:
+                self.logger.info("Trying to connect to the remote node...")
+                self.tx_socket.connect(('localhost', port))
+                break
+            except ConnectionRefusedError:
+                time.sleep(3)
 
     def send(self, mtype: int, mbody: bytes):
         message = Message.pack(mtype, mbody)
         self.tx_socket.send(message)
-        ack = self.tx_socket.recv()
-
-    def send_with_retry(self, mtype, mbody):
-        message = Message.pack(mtype, mbody)
-
-        while True:
-            try:
-                self.logger.debug("Sending message...")
-                self.tx_socket.send(message)
-                self.tx_socket.recv()
-                self.logger.debug("Message sent.")
-                return
-            except zmq.Again:
-                self.logger.debug("Message send failed, retrying...")
-                addr = self.tx_socket.getsockopt(zmq.LAST_ENDPOINT).decode()
-                port = addr.split(":")[-1]
-                self.tx_socket.close()
-                self.init_sender(port)
-                time.sleep(0.1)
+        self.logger.info(f"Sent message of type {mtype}")
     
     def register_observers(self, observers: List[Observer]):
-        self.receive_handler = ReceiveHandler(self.receive_queue, observers)
+        self.receive_handler = ReceiveHandler(
+            self.receive_queue, observers, self.logger)
         self.receive_handler.start()
 
     def terminate(self):
@@ -148,7 +145,8 @@ class Transceiver:
         self.receive_listener.join()
         self.receive_handler.stop()
         self.receive_handler.join()
-        self.rx_socket.close()
-        self.tx_socket.close()
-        self.context.term()
+        if self.rx_socket.fileno() != -1:
+            self.rx_socket.close()
+        if self.tx_socket.fileno() != -1:
+            self.tx_socket.close()
         self.logger.info("Transceiver stopped.")

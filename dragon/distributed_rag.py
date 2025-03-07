@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import time
+import ipdb
 import torch
 from typing import List, Tuple
 from sentence_transformers import CrossEncoder
@@ -10,6 +11,7 @@ from .generator.generator import Generator
 from .retriever.retriever import Retriever
 from .transceiver import Transceiver
 from .utils.mlogging import Logger
+from logging import Logger as PyLogger
 from .utils.meter import TimeMeter
 
 
@@ -23,7 +25,7 @@ class CausalOutput:
     
 class RagModule:
 
-    def __init__(self, config: DragonConfig, logger: Logger):
+    def __init__(self, config: DragonConfig, logger: PyLogger):
         self.logger = logger
         self.config = config
         self.device = torch.device(config.device)
@@ -73,16 +75,16 @@ class RagModule:
         with time_meter.timer("Retrieval"):
             passages, scores = self.retriever.retrieve_passages([query])[0]
         self.logger.debug(f"Retrieval complete in {time_meter.timer('Retrieval').duration:.4f} seconds.")
-
+        # ipdb.set_trace()
         with time_meter.timer("Tokenization"):
             # assemble input from passages, query and prompt_template
             passages = [p["text"] for p in passages]
             passages, scores = self._group_passages(passages, scores)
             input_text_list = [
                 prompt_template.format(
-                    doc_text=self._crop_context(doc_text), 
+                    context=self._crop_context(passage), 
                     query=query
-                ) for doc_text in passages
+                ) for passage in passages
             ]
 
             # encode input into input_ids and attention_mask    
@@ -134,13 +136,14 @@ class RagModule:
         Output Aggregation: 
         probs = softmax(w)^T softmax(z) -> log(probs) = logsumexp(logsoftmax(w)+logsoftmax(z))
         """
+        # ipdb.set_trace()
         with time_meter.timer("Decoding"):
             output = self.generator(input_ids=input_ids, attention_mask=attention_mask, past_key_values=past_key_values)
             logprobs = torch.nn.functional.log_softmax(    # (s_aggregate, s_vocab)
                 output.logits[:, -1] / self.generator.sampler.temperature, dim=-1)
-            logprobs = logprobs.permute(1, 0)              # (s_aggregate, s_vocab)
-            logprobs = logprobs + scores.unsqueeze(dim=-1) # (s_aggregate, s_vocab) + (s_aggregate, 1)
-            logprobs = torch.logsumexp(logprobs, dim=0)    # (s_vocab)
+            logprobs = logprobs.permute(1, 0)              # (s_vocab, s_aggregate)
+            logprobs = logprobs + scores                   # (s_vocab, s_aggregate) + (s_aggregate,)
+            logprobs = torch.logsumexp(logprobs, dim=1)    # (s_vocab,)
             next_token = self.generator.sampler(torch.exp(logprobs).unsqueeze(0))[0]
         self.logger.debug(f"Decoding complete in {time_meter.timer('Decoding').duration:.4f} seconds.")
 
@@ -149,46 +152,51 @@ class RagModule:
             past_key_values=output.past_key_values
         )
 
-    def generate(self, last_token: int, scores: torch.Tensor, past_key_values: List[torch.Tensor]) -> CausalOutput:
+    def generate(self, last_token: int, scores: torch.Tensor, attention_mask: torch.Tensor, past_key_values: List[torch.Tensor]) -> CausalOutput:
         input_ids = torch.as_tensor([last_token], dtype=torch.long, device=self.device)
         input_ids = input_ids.repeat(self.aggregate_size, 1)
-        attention_mask = torch.ones_like(input_ids)
-        return self._generate(input_ids, attention_mask, scores, past_key_values=past_key_values)
+        attention_mask = torch.cat([attention_mask, torch.ones_like(input_ids)], dim=1)
+        return self._generate(input_ids, attention_mask, scores, past_key_values=past_key_values), attention_mask
 
 
-class Dragon(Transceiver):
+# class Dragon(Transceiver):
+class Dragon:
 
     def __init__(self, config: DragonConfig):
-        super().__init__(config)
+        # super().__init__(config)
+        self.logger = Logger.build(__class__.__name__, "INFO")
+        self.ready_for_generation = True
         self.rag = RagModule(config, self.logger)
-        self.ready_for_generation = False
-        self.register_observers(self.collect_observers())
-        self.logger.info("Dragon listening for connections.")
-        self.send_with_retry(Message.READY_FOR_CONNECTION, b'')
+        # self.ready_for_generation = False
+        # self.register_observers(self.collect_observers())
+        # self.send(Message.READY_FOR_GENERATION, b"")
 
     def generate(self, query: str, prompt_template: str, max_new_tokens: int):
-        self.send(Message.GENERATE, query.encode('utf-8'))
+        # self.send(Message.GENERATE, query.encode('utf-8'))
         generated_ids, generated_text = [], ""
 
         input_ids, attention_mask, scores, passages = self.rag._prepare_inputs_for_generation(query, prompt_template)
         output = self.rag._generate(input_ids, attention_mask, scores)
         for step in range(max_new_tokens):
             generated_ids.append(output.next_token)
-            generated_text = self.rag.generator.tokenizer.decode(generated_ids, skip_special_tokens=True)
+            generated_text = self.rag.generator.tokenizer.decode(generated_ids)
             scores = self.rag.rerank_passages(query, generated_text, passages, scores, step)
-            output = self.rag.generate(
-                output.next_token, scores, past_key_values=output.past_key_values)
+            output, attention_mask = self.rag.generate(
+                output.next_token, scores, attention_mask, past_key_values=output.past_key_values)
         return generated_text
 
     def collect_observers(self):
-        return [getattr(self, attr) for attr in self.__dict__ if attr.startswith("_rx_")]
+        return [
+            self._rx_ready_for_generation,
+            self._rx_generate,
+        ]
 
-    def _rx_ready_for_generation(self, mtype, mbody):
+    def _rx_ready_for_generation(self, mtype: int, mbody: bytes):
         if mtype == Message.READY_FOR_GENERATION:
             self.ready_for_generation = True
             self.logger.info("Remote is ready for generation.")
     
-    def _rx_generate(self, mtype, mbody):
+    def _rx_generate(self, mtype: int, mbody: bytes):
         if mtype == Message.GENERATE:
             query = mbody.decode('utf-8')
             self.logger.info(f"Generating response for query: {query}")

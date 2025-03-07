@@ -41,7 +41,7 @@ class RagForGeneration:
         self.aggregate_size: int = config.retriever.s_aggregate
         
         if self.do_retrieval:
-            self.retriever = Retriever(config)
+            self.retriever = Retriever(config, logger)
             self.retriever.prepare_retrieval(config)
 
     def _prepare_inputs_for_generation(
@@ -187,7 +187,7 @@ class RagTokenForGeneration(RagForGeneration):
             scores_list.append(scores)
             input_ids = torch.as_tensor([next_token], dtype=torch.long).to(self.device)
             input_ids = input_ids.repeat(self.aggregate_size, 1)
-            attention_mask = torch.ones_like(input_ids)
+            attention_mask = torch.cat([attention_mask, torch.ones_like(input_ids)], dim=1)
             next_token, logprobs_token_wise, past_key_values = self._generate(
                 input_ids, attention_mask, scores, n_logits=1, past_key_values=past_key_values)
             logprobs.append(logprobs_token_wise)

@@ -54,7 +54,7 @@ def get_shard(passages):
 
 
 def main():
-    retriever = Retriever(config)
+    retriever = Retriever(config, logger)
     passages = get_shard(data_utils.load_passages(
         config.retriever.passages, config.retriever.s_passage, 
         cache_path=config.cache.directory))
