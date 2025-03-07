@@ -163,6 +163,7 @@ class Dragon(Transceiver):
         self.rag = RagModule(config, self.logger)
         self.ready_for_generation = False
         self.register_observers(self.collect_observers())
+        self.logger.info("Dragon listening for connections.")
         self.send_with_retry(Message.READY_FOR_CONNECTION, b'')
 
     def generate(self, query: str, prompt_template: str, max_new_tokens: int):

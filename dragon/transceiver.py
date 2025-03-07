@@ -35,13 +35,11 @@ class Message:
 class ReceiveListener(threading.Thread):
     def __init__(
             self, socket: zmq.SyncSocket, 
-            queue: queue.Queue,
-            s_buff: int = 1024):
+            queue: queue.Queue):
         threading.Thread.__init__(self)
         self.stop_event = threading.Event()
         self.queue = queue
         self.socket = socket
-        self.s_buff = s_buff
 
     def stop(self):
         self.stop_event.set()
@@ -49,7 +47,7 @@ class ReceiveListener(threading.Thread):
     def run(self):
         while not self.stop_event.is_set():
             try:
-                data = self.socket.recv(self.s_buff)
+                data = self.socket.recv()
                 self.queue.put(data)
                 ack_message = Message.pack(Message.ACK, b"")
                 self.socket.send(ack_message)
@@ -95,40 +93,50 @@ class Transceiver:
         self.name = f"Node{config.trans.rank:>02}"
         self.logger = Logger.build(self.name, level='INFO')
         self.context = zmq.Context()
+        self.buff_size, self.timeout_ms = 1024, 500
         self.init_receiver(port=self.config.trans.tx_port)
+        self.logger.info("Receiver initialized.")
         self.init_sender(port=self.config.trans.rx_port)
+        self.logger.info("Sender initialized.")
 
     def init_receiver(self, port):
         self.rx_socket = self.context.socket(zmq.REP)
+        self.rx_socket.setsockopt(zmq.RCVHWM, self.buff_size)
         self.rx_socket.bind(f"tcp://localhost:{port}")
-        self.rx_socket.setsockopt(zmq.RCVTIMEO, 100) 
 
         self.receive_queue = queue.Queue(0)
-        self.receive_listener = ReceiveListener(self.rx_socket, self.receive_queue)
+        self.receive_listener = ReceiveListener(
+            self.rx_socket, self.receive_queue)
         self.receive_listener.start()
-        self.logger.info("Receiver initialized.")
     
     def init_sender(self, port):
         self.tx_socket = self.context.socket(zmq.REQ)
+        self.tx_socket.setsockopt(zmq.SNDHWM, self.buff_size)
+        self.tx_socket.setsockopt(zmq.RCVTIMEO, self.timeout_ms)
         self.tx_socket.connect(f"tcp://localhost:{port}")
-        self.tx_socket.setsockopt(zmq.SNDTIMEO, 100)
-        self.logger.info("Sender initialized.")
 
     def send(self, mtype: int, mbody: bytes):
         message = Message.pack(mtype, mbody)
         self.tx_socket.send(message)
+        ack = self.tx_socket.recv()
 
-    def send_with_retry(self, mtype, mbody, max_retry=-1, sleep_time=1):
-        attempts = 0
+    def send_with_retry(self, mtype, mbody):
         message = Message.pack(mtype, mbody)
-        while max_retry == -1 or attempts < max_retry:
+
+        while True:
             try:
+                self.logger.debug("Sending message...")
                 self.tx_socket.send(message)
-                return True
+                self.tx_socket.recv()
+                self.logger.debug("Message sent.")
+                return
             except zmq.Again:
-                time.sleep(sleep_time)
-                attempts += 1
-        return False
+                self.logger.debug("Message send failed, retrying...")
+                addr = self.tx_socket.getsockopt(zmq.LAST_ENDPOINT).decode()
+                port = addr.split(":")[-1]
+                self.tx_socket.close()
+                self.init_sender(port)
+                time.sleep(0.1)
     
     def register_observers(self, observers: List[Observer]):
         self.receive_handler = ReceiveHandler(self.receive_queue, observers)
