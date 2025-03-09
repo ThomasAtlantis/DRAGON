@@ -1,4 +1,3 @@
-import ipdb
 import numpy as np
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers import PreTrainedModel, PreTrainedTokenizer
@@ -80,4 +79,4 @@ class Generator:
                 use_cache=True, 
                 **kwargs
             )
-        return output
+        return output    
