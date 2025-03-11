@@ -1,10 +1,7 @@
 from dataclasses import dataclass
-import pickle
+import math
 import queue
-import random
 import threading
-import time
-import ipdb
 import torch
 from typing import List, Tuple
 from sentence_transformers import CrossEncoder
@@ -27,10 +24,11 @@ class CausalOutput:
     logprobs: torch.Tensor
     past_key_values: List[torch.Tensor] = None
 
+class Preempted(Exception):
+    pass
+
 class PreemptableGenerator(threading.Thread, Generator):
 
-    class Preempted(Exception):
-        pass
     
     def __init__(self, config: DragonConfig, input_queue: queue.Queue, output_queue: queue.Queue):
         Generator.__init__(self, config)
@@ -45,7 +43,8 @@ class PreemptableGenerator(threading.Thread, Generator):
         def forward_hook(module_name, depth):
             def hook(module, input, output):
                 if self.stop_event.is_set():
-                    raise self.Preempted(f"Preempted after Module `{module_name}` at {depth / total_modules:.2%}")
+                    raise Preempted(f"Preempted after Module `{module_name}` at {depth / total_modules:.2%}")
+                    # return 0
                 return output
             return hook
 
@@ -58,7 +57,7 @@ class PreemptableGenerator(threading.Thread, Generator):
             try:
                 input_ids, attention_mask, kwargs = self.input_queue.get()
             except Exception as e:
-                self.logger.info("Generator stopped")
+                self.logger.debug("Generator stopped")
                 break
             try:
                 self.output_queue.put(
@@ -68,8 +67,8 @@ class PreemptableGenerator(threading.Thread, Generator):
                         **kwargs
                     )
                 )
-            except self.Preempted as e:
-                self.logger.info(e)
+            except Preempted as e:
+                self.logger.warning(e)
                 self.output_queue.put(None)
                 pass
     
@@ -80,7 +79,8 @@ class PreemptableGenerator(threading.Thread, Generator):
 
 class RagPipeline:
 
-    def __init__(self, config: DragonConfig, logger: PyLogger):
+    def __init__(self, config: DragonConfig, logger: PyLogger, rank_idx: int):
+        self.rank_idx = rank_idx
         self.logger = logger
         self.config = config
         self.device = torch.device(config.device)
@@ -117,8 +117,6 @@ class RagPipeline:
         and calculate the average score for each group.
         """
         group_size = len(passages) // self.aggregate_size
-        if group_size == 0:
-            self.logger.info(f"{len(scores)=} {self.aggregate_size=}")
         group_scores, group_passages = [], []
         for i in range(self.aggregate_size):
             beg, end = i * group_size, (i + 1) * group_size
@@ -231,7 +229,7 @@ class RagPipeline:
         input_ids = torch.as_tensor([last_token], dtype=torch.long, device=self.device)
         input_ids = input_ids.repeat(self.aggregate_size, 1)
         attention_mask = torch.cat([attention_mask, torch.ones_like(input_ids)], dim=1)
-        return self._generate(input_ids, attention_mask, scores, past_key_values=past_key_values), attention_mask
+        return self._generate(input_ids, attention_mask, scores, past_key_values=past_key_values, preemptable=True), attention_mask
 
 
 class Aggregator(threading.Thread):
@@ -256,14 +254,17 @@ class Aggregator(threading.Thread):
 
     def run(self):
         while self.target_tokens.qsize() < self.max_new_tokens:
-            draft_token_l, logprobs_l, score_l = self.draft_tokens_loc.get()
-            draft_token_r, logprobs_r, score_r = self.draft_tokens_rem.get()
-
+            draft_token_l, logprobs_l, score_l, step = self.draft_tokens_loc.get()
+            while step != self.target_tokens.qsize():
+                draft_token_l, logprobs_l, score_l, step = self.draft_tokens_loc.get()
+            draft_token_r, logprobs_r, score_r, step = self.draft_tokens_rem.get()
+            while step != self.target_tokens.qsize():
+                draft_token_r, logprobs_r, score_r, step = self.draft_tokens_rem.get()
             next_token = self.aggregate(
                 draft_token_l, draft_token_r, logprobs_l, logprobs_r, score_l, score_r)
-            self.logger.info(f"Aggregated next_token {next_token} from (local {draft_token_l}, remote {draft_token_r})")
             self.target_tokens.put(next_token)
-            self.transceiver.send(Message.TARGET_TOKEN, next_token)
+            self.transceiver.check_recompute(False)
+            self.transceiver._send_target_token(next_token, False)
 
     def aggregate(self, draft_token_l: int, draft_token_r: int, logprobs_l: torch.Tensor, logprobs_r: torch.Tensor, score_l: float, score_r: float):
         scores = torch.as_tensor([score_l, score_r], dtype=torch.float32, device=logprobs_l.device)
@@ -272,17 +273,22 @@ class Aggregator(threading.Thread):
         logprobs = logprobs + scores                             # (s_vocab, 2) + (2,)
         logprobs = torch.logsumexp(logprobs, dim=1)              # (s_vocab,)
         next_token = self.sampler(torch.exp(logprobs).unsqueeze(0))[0]
+        
+        real_weight_l = math.exp(score_l) / (math.exp(score_l) + math.exp(score_r))
+        real_weight_r = 1 - real_weight_l
+        self.logger.debug(
+            f"Local(draft={draft_token_l}, weight={real_weight_l:>.2f}), Remote(draft={draft_token_r}, weight={real_weight_r:>.2f}) => Target({next_token})"
+        )
         return next_token
 
 class Dragon(Transceiver):
 
     def __init__(self, config: DragonConfig):
         super().__init__(config)
-        self.rag = RagPipeline(config, self.logger)
+        self.rag = RagPipeline(config, self.logger, self.rank)
         self.ready_for_generation = False
         self.register_observers(self.collect_observers())
         self.send(Message.READY_FOR_GENERATION, None)
-        self.preempt_event = threading.Event()
 
         # Define draft queues
         self.draft_tokens_rem = queue.Queue(0)
@@ -295,18 +301,18 @@ class Dragon(Transceiver):
         self.aggregator = None
     
     def shutdown(self):
-        self.logger.info("Shutting down.")
         self.send(Message.SHUTDOWN, None)
-        self.terminate()
-        if threading.current_thread().name == "MainThread":
-            if self.receive_handler.is_alive():
-                self.receive_handler.join()
+        self._shutdown()
+
+    def _shutdown(self):
+        self.logger.info("Shutting down.")
         if self.aggregator and self.aggregator.is_alive():
             self.aggregator.join()
         if self.decoding_thread.is_alive():
             self.decoding_thread.join()
         if self.rag.generator.is_alive():
             self.rag.generator.close()
+        self.terminate()
 
     def init_aggregator(self, max_new_tokens: int):
         if self.rank == 1:  # 1 for device-side, 0 for cloud-side
@@ -329,7 +335,7 @@ class Dragon(Transceiver):
         # decoded_output = self.generate_loc(query, prompt_template, max_new_tokens)
         self.decoding_thread.join()
         self.aggregator.join()
-        self.logger.info(f"Got output_ids {self.output_ids} of length {len(self.output_ids)}.")
+        self.logger.debug(f"Got output_ids {self.output_ids} of length {len(self.output_ids)}.")
         decoded_output = self.rag.generator.tokenizer.decode(self.output_ids, skip_special_tokens=True)
         return decoded_output
     
@@ -339,27 +345,46 @@ class Dragon(Transceiver):
     def generate_loc(self, query: str, prompt_template: str, max_new_tokens: int):
         # start a new thread to do generation
 
+        step = 0
         input_ids, attention_mask, scores, passages = self.rag._prepare_inputs_for_generation(query, prompt_template)
+        context_length = input_ids.shape[1]
         output = self.rag._generate(input_ids, attention_mask, scores)
         score = torch.logsumexp(scores, dim=0).item()
-        self.draft_tokens_loc.put((output.next_token, output.logprobs, score))
-        self.send(Message.DRAFT_TOKEN, (output.next_token, output.logprobs.tolist(), score))
+        self._send_draft_token(output.next_token, output.logprobs, score, step)
         while True:
-            self.logger.info(f"{self.target_tokens.qsize()=}, {self.draft_tokens_loc.qsize()=}, {self.draft_tokens_rem.qsize()=}")
+            self.logger.debug(f"n_targets={self.target_tokens.qsize()}, n_locals={self.draft_tokens_loc.qsize()}, n_remotes={self.draft_tokens_rem.qsize()}")
             if self.target_tokens.qsize() >= max_new_tokens:
                 break
+            # if self.draft_tokens_loc.qsize() >= max_new_tokens:
+            #     continue
             # generated_ids.append(next_token)
             # generated_text = self.rag.generator.tokenizer.decode(generated_ids)
             # scores = self.rag.rerank_passages(query, generated_text, passages, scores, step)
             temp_output = self.rag.generate(
                 output.next_token, scores, attention_mask, past_key_values=output.past_key_values)
-            if temp_output is None:
-                # implement re-compute logic
+            if temp_output[0] is None:
+                # re-computing the last token
+                self.logger.debug("Recomputing the last token.")
+                self.rag.generator.stop_event.clear()
+                step = self.target_tokens.qsize() - 1
+                target_last_token = self.target_tokens.queue[-1]
+                # TODO: scroll back the scores
+                attention_mask = attention_mask[:, : context_length + step + 1]
+                # self.logger.info("Scrolling back the past_key_values.")
+                # self.logger.info(f"Before: {output.past_key_values[0][0].shape=}")
+                output.past_key_values = list(output.past_key_values)
+                for i, _ in enumerate(output.past_key_values):
+                    output.past_key_values[i] = list(output.past_key_values[i])
+                    output.past_key_values[i][0] = output.past_key_values[i][0][..., : context_length + step + 1, :]
+                    output.past_key_values[i][1] = output.past_key_values[i][1][..., : context_length + step + 1, :]
+                # self.logger.info(f"After: {output.past_key_values[0][0].shape=}")
+                temp_output = self.rag.generate(
+                    target_last_token, scores, attention_mask, past_key_values=output.past_key_values)
                 continue
+            step += 1
             output, attention_mask = temp_output
-            self.draft_tokens_loc.put((output.next_token, output.logprobs, score))
-            self.send(Message.DRAFT_TOKEN, (output.next_token, output.logprobs.tolist(), score))
-        self.logger.info("Generation complete.")
+            self._send_draft_token(output.next_token, output.logprobs, score, step)
+        self.logger.debug("Generation complete.")
         self.output_ids = [self.target_tokens.get() for _ in range(max_new_tokens)]
         # clean up
         self.receive_queue.queue.clear()
@@ -367,7 +392,17 @@ class Dragon(Transceiver):
         self.draft_tokens_loc.queue.clear()
         self.draft_tokens_rem.queue.clear()
         self.target_tokens.queue.clear()
-        self.logger.info("Cleaned up.")
+        self.logger.debug("Cleaned up.")
+
+    def check_recompute(self, accept: bool):
+        if not accept:
+            self.rag.generator.input_queue.queue.clear()
+            self.rag.generator.stop_event.set()
+            self.logger.debug("Preempting the current generation process.")
+
+            self.draft_tokens_loc.queue.clear()
+            self.draft_tokens_rem.queue.clear()
+            
 
     def collect_observers(self):
         return [
@@ -381,13 +416,13 @@ class Dragon(Transceiver):
     def _rx_ready_for_generation(self, mtype: int, mbody: object):
         if mtype != Message.READY_FOR_GENERATION: return False
         self.ready_for_generation = True
-        self.logger.info("Remote is ready for generation.")
+        self.logger.debug("Remote is ready for generation.")
         return True
     
     def _rx_begin_generate(self, mtype: int, mbody: object):
         if mtype != Message.BEGIN_GENERATE: return False
         query, prompt_template, max_new_tokens = mbody
-        self.logger.info(f"Generating response for query: {query}")
+        self.logger.debug(f"Generating response for query: {query}")
         self.decoding_thread = threading.Thread(target=self.generate_loc, args=(query, prompt_template, max_new_tokens))
         self.decoding_thread.start()
         # decoded_output = self.generate_loc(query, prompt_template, max_new_tokens)
@@ -395,19 +430,28 @@ class Dragon(Transceiver):
     
     def _rx_draft_token(self, mtype: int, mbody: object):
         if mtype != Message.DRAFT_TOKEN: return False
-        next_token, logprobs, score = mbody
+        next_token, logprobs, score, step = mbody
         logprobs = torch.as_tensor(logprobs, dtype=torch.float32, device=self.rag.device)
-        self.draft_tokens_rem.put((next_token, logprobs, score))
+        self.draft_tokens_rem.put((next_token, logprobs, score, step))
         return True
     
     def _rx_target_token(self, mtype: int, mbody: object):
         if mtype != Message.TARGET_TOKEN: return False
-        self.target_tokens.put(mbody)
-        self.logger.info("Successfully received target token.")
+        target_token, accept = mbody
+        self.target_tokens.put(target_token)
+        self.check_recompute(accept)
+        # self.logger.info("Successfully received target token.")
         return True
 
     def _rx_shutdown(self, mtype: int, mbody: object):
         if mtype != Message.SHUTDOWN: return False
         self.logger.info("Received shutdown signal.")
-        self.shutdown()
+        self._shutdown()
         return True
+
+    def _send_draft_token(self, token: int, logprobs: torch.Tensor, score: float, step: int):
+        self.draft_tokens_loc.put((token, logprobs, score, step))
+        self.send(Message.DRAFT_TOKEN, (token, logprobs.tolist(), score, step))
+    
+    def _send_target_token(self, token: int, accept: bool):
+        self.send(Message.TARGET_TOKEN, (token, accept))

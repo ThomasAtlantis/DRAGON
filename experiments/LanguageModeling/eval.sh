@@ -6,7 +6,7 @@ python -m dragon.toolbox.embed_passages \
     --retriever.model "contriever" \
     --retriever.passages "Salesforce/wikitext,wikitext-103-raw-v1" \
     --output_dir "./data/wikitext103" \
-    --retriever.bs_encode 1024 \
+    --retriever.bs_encode 512 \
     --retriever.s_passage 64 \
     --text.with_title
 # Evaluate cross entropy for language modeling:

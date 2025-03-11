@@ -19,6 +19,7 @@ class Message:
     DRAFT_TOKEN = 4
     TARGET_TOKEN = 5
     SHUTDOWN = 6
+    EMPTY = 7
     header = "=B I"
 
     @staticmethod
@@ -59,7 +60,7 @@ class ReceiveListener(threading.Thread):
             while len(header) < self.header_size:
                 chunk = conn.recv(self.header_size - len(header))
                 if not chunk:
-                    self.logger.error("Connection closed prematurely.")
+                    self.logger.warning("Connection closed prematurely.")
                     conn.close()
                     return
                 header += chunk
@@ -68,13 +69,13 @@ class ReceiveListener(threading.Thread):
             while len(mbody) < body_len:
                 chunk = conn.recv(body_len - len(mbody))
                 if not chunk:
-                    self.logger.error("Incomplete message body received.")
+                    self.logger.warning("Incomplete message body received.")
                     conn.close()
                     return
                 mbody += chunk
             self.queue.put((mtype, mbody))
-            self.logger.info(f"Received Message(mtype={mtype2str[mtype]}, len={body_len})")
-        self.logger.info("Connection closed.")
+            self.logger.debug(f"Received Message(mtype={mtype2str[mtype]}, len={body_len})")
+        self.logger.debug("Connection closed.")
         conn.close()
 
 
@@ -95,6 +96,7 @@ class ReceiveHandler(threading.Thread):
 
     def stop(self):
         self.stop_event.set()
+        self.queue.put((Message.EMPTY, pickle.dumps(None)))
     
     def run(self):
         while not self.stop_event.is_set():
@@ -149,7 +151,10 @@ class Transceiver:
     def send(self, mtype: int, mbody: object):
         data, body_len = Message.pack(mtype, mbody)
         self.tx_socket.send(data)
-        self.logger.info(f"Sent Message(mtype={mtype2str[mtype]}, len={body_len})")
+        if mtype in [Message.DRAFT_TOKEN, Message.TARGET_TOKEN]:
+            self.logger.debug(f"Sent Message(mtype={mtype2str[mtype]}, len={body_len}, token={mbody[0]})")
+        else:
+            self.logger.debug(f"Sent Message(mtype={mtype2str[mtype]}, len={body_len})")
     
     def register_observers(self, observers: List[Observer]):
         self.receive_handler = ReceiveHandler(
@@ -158,12 +163,12 @@ class Transceiver:
 
     def terminate(self):
         print()
-        self.receive_listener.stop()
-        if self.receive_listener.is_alive():
-            self.receive_listener.join()
-        self.receive_handler.stop()
         if self.rx_socket.fileno() != -1:
             self.rx_socket.close()
         if self.tx_socket.fileno() != -1:
             self.tx_socket.close()
+        self.receive_listener.stop()
+        if self.receive_listener.is_alive():
+            self.receive_listener.join()
+        self.receive_handler.stop()
         self.logger.info("Transceiver stopped.")

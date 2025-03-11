@@ -12,7 +12,7 @@ class Logger:
             fmt=f"[bold yellow1]:{logger_name}:[/bold yellow1] %(message)s",
             datefmt="[%X]"
         )
-        handler = RichHandler(markup=True, rich_tracebacks=True)
+        handler = RichHandler(markup=True, rich_tracebacks=True, show_path=False)
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         logger.propagate = False
