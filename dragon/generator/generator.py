@@ -69,13 +69,6 @@ class Generator:
                 use_cache=True, 
                 **kwargs
             )
-        if pkv := kwargs.get("past_key_values"):
-            print(pkv[0][0].shape, input_ids.shape, attention_mask.shape, output.past_key_values[0][0].shape)
-        # if pkv := kwargs.get("past_key_values"):
-        #     if pkv[0][0].shape[2] == 148:
-        #         print(input_ids[0])
-        #         print(attention_mask[0])
-        #         print(output.logits[0, -1][:20])
         return output
     
     def generate(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, **kwargs) -> CausalLMOutputWithPast:  # generation

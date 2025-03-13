@@ -62,7 +62,6 @@ class PreemptableGenerator(threading.Thread, Generator):
             try:
                 # ipdb.set_trace()
                 input_ids, attention_mask, kwargs = self.input_queue.get()
-                # print(f"GeneratorInput: {input_ids}")
             except Exception as e:
                 self.logger.debug("Generator stopped")
                 break
@@ -74,7 +73,6 @@ class PreemptableGenerator(threading.Thread, Generator):
                         **kwargs
                     )
                 )
-                # print(f"GeneratorOutput: {self.output_queue.queue[-1].logits.cpu().max(dim=-1)}")
             except Preempted as e:
                 self.logger.warning(e)
                 self.stop_event.clear()
@@ -82,7 +80,6 @@ class PreemptableGenerator(threading.Thread, Generator):
                 self.output_queue.put(None)
             except RuntimeError as e:
                 self.logger.error(e)
-                print(input_ids.shape, attention_mask.shape, kwargs['past_key_values'][0][0].shape)
     
     def close(self):
         self.stop_event.set()
@@ -149,7 +146,6 @@ class RagPipeline:
             else:
                 passages, scores = passages[self.config.retriever.n_docs:], scores[self.config.retriever.n_docs:]
         self.logger.debug(f"Retrieval complete in {time_meter.timer('Retrieval').duration:.4f} seconds.")
-        # ipdb.set_trace()
         with time_meter.timer("Tokenization"):
             # assemble input from passages, query and prompt_template
             passages = [p["text"] for p in passages]
@@ -161,7 +157,6 @@ class RagPipeline:
                     query=query
                 ) for passage in passages
             ]
-            # print(input_text_list)
 
             # encode input into input_ids and attention_mask    
             inputs_encoding = self.generator.tokenizer.batch_encode_plus(
@@ -214,8 +209,6 @@ class RagPipeline:
             if preemptable:
                 self.input_queue.put((input_ids, attention_mask, {"past_key_values": past_key_values}))
                 output = self.output_queue.get()
-                print("iq:", [(am.shape, d['past_key_values'][0][0].shape) for ii, am, d in self.generator.input_queue.queue])
-                print("oq:", [o.past_key_values[0][0].shape if o else None for o in self.generator.output_queue.queue])
                 
                 if output is None: return None
             else:
@@ -263,6 +256,7 @@ class Aggregator(threading.Thread):
         self.sampler = sampler
         self.transceiver = transceiver
         self.logger = Logger.build(__class__.__name__, level="INFO")
+        self.logger.info("hello")
         self.logger.info("Aggregator initialized.")
         self.max_new_tokens = max_new_tokens
 
@@ -271,11 +265,9 @@ class Aggregator(threading.Thread):
             draft_token_l, logprobs_l, score_l, step, fingerprint = self.draft_tokens_loc.get()
             while step != self.target_tokens.qsize():
                 draft_token_l, logprobs_l, score_l, step, fingerprint = self.draft_tokens_loc.get()
-            # print("fingerprint_l:", fingerprint)
             draft_token_r, logprobs_r, score_r, step, fingerprint = self.draft_tokens_rem.get()
             while step != self.target_tokens.qsize():
                 draft_token_r, logprobs_r, score_r, step, fingerprint = self.draft_tokens_rem.get()
-            # print("fingerprint_r:", fingerprint)
             next_token = self.aggregate(
                 draft_token_l, draft_token_r, logprobs_l, logprobs_r, score_l, score_r)
             self.target_tokens.put(next_token)
@@ -295,7 +287,6 @@ class Aggregator(threading.Thread):
         self.logger.debug(
             f"Local(draft={draft_token_l}, weight={real_weight_l:>.2f}), Remote(draft={draft_token_r}, weight={real_weight_r:>.2f}) => Target({next_token})"
         )
-        # print(logprobs.mean())
         return next_token
 
 class Dragon(Transceiver):
@@ -366,37 +357,16 @@ class Dragon(Transceiver):
         input_ids, attention_mask, scores, passages = self.rag._prepare_inputs_for_generation(query, prompt_template)
         context_length = input_ids.shape[1]
         output = self.rag._generate(input_ids, attention_mask, scores)
-        # print(input_ids[0])
-        # print(attention_mask[0])
-        # print(scores[0])
-        # print(output.fingerprint)
         score = torch.logsumexp(scores, dim=0).item()
         self._send_draft_token(output.next_token, output.logprobs, score, step, fingerprint=output.fingerprint)
         while True:
-            self.logger.debug(f"n_targets={self.target_tokens.qsize()}, n_locals={self.draft_tokens_loc.qsize()}, n_remotes={self.draft_tokens_rem.qsize()}")
-            print("input_queue:", [(am.shape, d['past_key_values'][0][0].shape) for ii, am, d in self.rag.generator.input_queue.queue])
-            print("output_queue:", [o.past_key_values[0][0].shape if o else None for o in self.rag.generator.output_queue.queue])
             if self.target_tokens.qsize() >= max_new_tokens:
                 break
-            # ipdb.set_trace()
-            # if self.draft_tokens_loc.qsize() >= max_new_tokens:
-            #     continue
-            # generated_ids.append(next_token)
-            # generated_text = self.rag.generator.tokenizer.decode(generated_ids)
-            # scores = self.rag.rerank_passages(query, generated_text, passages, scores, step)
-            # self.logger.info(f"{output.past_key_values[0][0].shape}, {attention_mask.shape}, {step=}")
-            print("#### Beg generate()")
-            self.logger.info(f"Input: {output.past_key_values[0][0].shape}, {attention_mask.shape}, {step=}")
             temp_output = self.rag.generate(
                 output.next_token, scores, attention_mask, past_key_values=output.past_key_values)
-            print("#### End generate()")
             if temp_output[0] is None:
                 # re-computing the last token
                 self.logger.debug("Recomputing the last token.")
-                # self.rag.generator.input_queue.queue.clear()
-                # self.rag.generator.output_queue.queue.clear()
-                # self.rag.generator.stop_event.clear()
-                # self.logger.info(f"Before: {output.past_key_values[0][0].shape}, {attention_mask.shape}, {step=}")
                 step = self.target_tokens.qsize() - 1
                 output.next_token = self.target_tokens.queue[-1]
                 # TODO: scroll back the scores
@@ -408,9 +378,6 @@ class Dragon(Transceiver):
                     output.past_key_values[i][1] = output.past_key_values[i][1][..., : context_length + step, :]
                     output.past_key_values[i] = tuple(output.past_key_values[i])
                 output.past_key_values = tuple(output.past_key_values)
-                self.logger.info(f"After: {output.past_key_values[0][0].shape}, {attention_mask.shape}, {step=}")
-                # temp_output = self.rag.generate(
-                #     output.next_token, scores, attention_mask, past_key_values=output.past_key_values)
                 continue
             step += 1
             output, attention_mask = temp_output
@@ -434,8 +401,6 @@ class Dragon(Transceiver):
         if not accept:
             self.logger.debug("Preempting the current generation process.")
             self.rag.generator.stop_event.set()
-            # self.rag.generator.input_queue.queue.clear()
-            # self.rag.generator.output_queue.put(None)
             self.draft_tokens_loc.queue.clear()
             self.draft_tokens_rem.queue.clear()
             
