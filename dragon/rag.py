@@ -6,7 +6,8 @@ from tqdm import tqdm
 
 from .config import DragonConfig
 from .generator.generator import Generator
-from .retriever.retriever import Retriever
+# from .retriever.retriever import Retriever
+from .retriever.retriever import DPRRetrieverClient as Retriever
 from .utils.mlogging import Logger
 from .utils.meter import TimeMeter
 
@@ -64,9 +65,10 @@ class RagForGeneration:
                 for doc_text in doc_texts
             ]
             input_text_list = [
-                template.format(doc_text=doc_text, query=query, input_text=input_text)
+                template.format(context=doc_text, query=query, input_text=input_text)
                 for doc_text in doc_texts
             ]
+            # print(input_text_list)
 
             inputs_encoding = self.generator.tokenizer.batch_encode_plus(
                 input_text_list, padding='longest', return_tensors='pt')
@@ -107,13 +109,41 @@ class RagForGeneration:
         probs = softmax(w)^T softmax(z) -> log(probs) = logsumexp(logsoftmax(w)+logsoftmax(z))
         """
         with time_meter.timer("Decoding"):
-            output = self.generator(
-                input_ids=input_ids, 
-                attention_mask=attention_mask, 
-                past_key_values=past_key_values
+            # output = self.generator(
+            #     input_ids=input_ids, 
+            #     attention_mask=attention_mask, 
+            #     past_key_values=past_key_values
+            # )
+            half_size = input_ids.shape[0] // 2
+            # past_key_values_1 = [[], []] if past_key_values is not None else None
+            # past_key_values_2 = [[], []] if past_key_values is not None else None
+            # if past_key_values is not None:
+            #     for layer_idx in range(len(past_key_values)):
+            #         past_key_values_1[0].append(past_key_values[layer_idx][0][: half_size])                    
+            #         past_key_values_1[1].append(past_key_values[layer_idx][1][: half_size])
+            #         past_key_values_2[0].append(past_key_values[layer_idx][0][half_size: ])
+            #         past_key_values_2[1].append(past_key_values[layer_idx][1][half_size: ])
+            past_key_values_1 = past_key_values_2 = None
+            if past_key_values is not None:
+                past_key_values_1, past_key_values_2 = past_key_values
+
+            output_1 = self.generator(
+                input_ids=input_ids[: half_size], 
+                attention_mask=attention_mask[: half_size], 
+                past_key_values=past_key_values_1
             )
-            past_key_values = output.past_key_values
-            logits = output.logits[:, -n_logits: ]
+            output_2 = self.generator(
+                input_ids=input_ids[half_size: ], 
+                attention_mask=attention_mask[half_size: ], 
+                past_key_values=past_key_values_2
+            )
+            # past_key_values = [[], []]
+            # for layer_idx in range(len(output_1.past_key_values)):
+            #     past_key_values[0].append(torch.vstack([output_1.past_key_values[layer_idx][0], output_2.past_key_values[layer_idx][0]]))
+            #     past_key_values[1].append(torch.vstack([output_1.past_key_values[layer_idx][1], output_2.past_key_values[layer_idx][1]]))
+            past_key_values = (output_1.past_key_values, output_2.past_key_values)
+            logits = torch.vstack([output_1.logits[:, -n_logits: ], output_2.logits[:, -n_logits: ]])
+            # print(logits.squeeze(-1).cpu().max(dim=-1))
             logprobs = torch.nn.functional.log_softmax(     # (s_aggregate, s_sequence, s_vocab)
                 logits / self.generator.sampler.temperature, dim=-1)
             logprobs = logprobs.permute(1, 0, 2)            # (s_sequence, s_aggregate, s_vocab)
@@ -171,8 +201,8 @@ class RagTokenForGeneration(RagForGeneration):
         scores_list = []  # for debugging
         pbar = tqdm(total=max_new_tokens, desc="Generating", leave=False, initial=0)
         context_input_ids, attention_mask, scores, doc_texts = self._prepare_inputs_for_generation(query_ids, [], template)
-        with open("logs/docs.pkl", "wb") as f:
-            pickle.dump(doc_texts, f)
+        # with open("logs/docs.pkl", "wb") as f:
+        #     pickle.dump(doc_texts, f)
         scores_list.append(scores)
 
         # Pre-fill the context
@@ -196,8 +226,8 @@ class RagTokenForGeneration(RagForGeneration):
         pbar.close()
         logprobs = torch.vstack(logprobs)    # (max_new_tokens, s_vocab)
         scores_list = torch.vstack(scores_list).exp()  # (max_new_tokens, s_aggregate)
-        with open("logs/scores.pkl", "wb") as f:
-            pickle.dump(scores_list.cpu().tolist(), f)
+        # with open("logs/scores.pkl", "wb") as f:
+        #     pickle.dump(scores_list.cpu().tolist(), f)
         return output_ids, logprobs
     
 class RagSequenceForGeneration(RagForGeneration):

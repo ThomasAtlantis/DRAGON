@@ -92,7 +92,8 @@ log(y)&=\log \sum_{k} \frac{\exp(w^k)}{\sum_i \exp(w^i)}\cdot \frac{\exp(z^k)}{\
 | Ernest Miller Hemingway was | a in writerveston's 18 also a cited as. to of the investon acht Club, of he of also a themervestoningway Club who was a great writer theing he wason aacht man. He was a man who the a greaton, the he was also a great man of the was aon who was a great line of the novel was the a greaton Y line was a novel is was a first line of the novel is also a | a writer and poet who was born in Galveston, Texas in 1882. He was the son of a Methodist minister and a schoolteacher. He was educated at the University of Texas and the University of Texas at Austin. He was a member of the Sigma Phi Epsilon fraternity. He was a member of the Texas Writers Club and the Texas Writers Club. He was a member of the Texas Writers Club. He was a member of the Texas Writers Club. He was a member of the |
 
 ## TODO List
-- [ ] Test different passage corpus across the device and the cloud
+- [ ] Why dragon's outputs are different from the centralized one
+- [x] Test different passage corpus across the device and the cloud
 - [ ] Implement speculative aggregation
 - [ ] Implement scheduling
 - [ ] Refactoring and measurement

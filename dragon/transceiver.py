@@ -118,7 +118,7 @@ class Transceiver:
         self.config = config
         self.rank = config.trans.rank
         self.name = f"Node{config.trans.rank:>02}"
-        self.logger = Logger.build(self.name, level='INFO')
+        self.logger = Logger.build(self.name, level='DEBUG')
         self.init_receiver(port=self.config.trans.rx_port)
         self.logger.info("Receiver initialized.")
         self.init_sender(port=self.config.trans.tx_port)

@@ -3,6 +3,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers import PreTrainedModel, PreTrainedTokenizer
 from ..config import DragonConfig
 from ..utils.mlogging import Logger
+from ..utils.stable import seed_everything
 from transformers.modeling_outputs import CausalLMOutputWithPast
 import torch
 
@@ -58,6 +59,7 @@ class Generator:
         self.max_seq_len = min(config.generator.s_sequence, self.model.config.max_position_embeddings)
     
     def __call__(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, **kwargs) -> CausalLMOutputWithPast:  # prefilling
+        seed_everything(42)
         with torch.inference_mode():
             output = self.model(
                 input_ids=input_ids, 
@@ -67,6 +69,13 @@ class Generator:
                 use_cache=True, 
                 **kwargs
             )
+        if pkv := kwargs.get("past_key_values"):
+            print(pkv[0][0].shape, input_ids.shape, attention_mask.shape, output.past_key_values[0][0].shape)
+        # if pkv := kwargs.get("past_key_values"):
+        #     if pkv[0][0].shape[2] == 148:
+        #         print(input_ids[0])
+        #         print(attention_mask[0])
+        #         print(output.logits[0, -1][:20])
         return output
     
     def generate(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, **kwargs) -> CausalLMOutputWithPast:  # generation

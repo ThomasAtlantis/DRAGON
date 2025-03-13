@@ -13,6 +13,8 @@
 /*.pt
 /logs/
 /log*
+/models
+/datasets
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

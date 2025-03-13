@@ -1,9 +1,11 @@
 import os
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 import time
+from dragon.utils.stable import seed_everything
 from dragon.config import DragonConfig
 from dragon.distributed_rag import Dragon
 
+seed_everything(42)
 
 if __name__ == "__main__":
 
@@ -26,11 +28,11 @@ if __name__ == "__main__":
     while not device.ready_for_generation:
         time.sleep(0.1)
     queries = [
-        "What is the capital of France?",
-        "Who is the author of Harry Potter?"
+        "who came up with the theory of relativity",
+        "how many moons does mars have",
     ]
     max_new_tokens = 10
-    template = "Context: {context} Given the context, answer the question: {query}" 
+    template = "context: {context} given the context, answer the question: {query}? " 
     for query in queries:
         response = device.query(query, template, max_new_tokens)
         print(response)

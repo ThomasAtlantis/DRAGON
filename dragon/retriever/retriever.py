@@ -1,14 +1,19 @@
+from abc import ABC, abstractmethod
 from functools import partial
 import importlib
 import glob
 import copy
 from pathlib import Path
+import socket
+import struct
 import torch
 
-from typing import List, Dict, Protocol
+import requests, json
+from typing import List, Dict, Protocol, Tuple
 from tqdm import trange
 from transformers import PreTrainedTokenizer, PreTrainedModel
-
+from transformers import RagRetriever
+from transformers import DPRQuestionEncoder
 from ..utils.data_process.data_utils import load_passages
 from .indexer import Indexer
 from ..config import DragonConfig
@@ -27,14 +32,28 @@ class TextProcessor(Protocol):
     def __call__(self) -> List[str]: ...
 
 
-class Retriever():
+class BaseRetriever(ABC):
+
+    def __init__(self, config: DragonConfig, logger: Logger):
+        self.logger = logger
+        self.config = config
+
+    @abstractmethod
+    def prepare_retrieval(self, config: DragonConfig):
+        raise NotImplementedError
+
+    @abstractmethod
+    def retrieve_passages(self, queries: List[str]) -> List[Tuple[List[Dict], List[float]]]:
+        raise NotImplementedError
+
+
+class CustomRetriever(BaseRetriever):
     """
     Retriever class for retrieving data from the database.
     """
 
     def __init__(self, config: DragonConfig, logger: Logger):
-        self.logger = logger
-        self.config = config
+        super().__init__(config, logger)
         self.model: PreTrainedModel
         self.tokenizer: PreTrainedTokenizer
         self.n_docs = config.retriever.n_docs
@@ -127,3 +146,85 @@ class Retriever():
                 docs_scores.append((docs, query_scores))
                 self.query2docs.set(query, (docs, query_scores))
             return docs_scores
+
+
+class DPRRetriever(BaseRetriever):
+
+    def __init__(self, config, logger):
+        super().__init__(config, logger)
+        self.n_docs = config.retriever.n_docs
+    
+    def prepare_retrieval(self, config: DragonConfig):
+        model_path = "models/dpr-nq/retriever"
+        passages_path = "datasets/retrieval_corpus/wiki_dpr/passages"
+        index_path = "datasets/retrieval_corpus/wiki_dpr/index.faiss"
+        query_encoder_path = "models/dpr-nq/query_encoder"
+        self.retriever = RagRetriever.from_pretrained(
+            model_path, index_name="custom", use_dummy_dataset=False,
+            passages_path=passages_path, index_path=index_path)
+        self.query_encoder = DPRQuestionEncoder.from_pretrained(query_encoder_path)
+    
+    def retrieve_passages(self, queries: List[str]):
+        docs_scores = []
+        with torch.inference_mode():
+            query_encodings = self.retriever.question_encoder_tokenizer(
+                queries, return_tensors="pt", padding='longest')
+            query_ids, attention_mask = query_encodings["input_ids"], query_encodings["attention_mask"]
+            question_hidden_states = self.query_encoder(query_ids, attention_mask=attention_mask)[0]
+            output = self.retriever(query_ids, question_hidden_states.numpy(), n_docs=self.n_docs, return_tensors="pt")
+            scores_list = torch.bmm(
+                question_hidden_states.unsqueeze(1), output["retrieved_doc_embeds"].float().transpose(1, 2)
+            ).squeeze(1).tolist()
+            passage_ids_list = output["context_input_ids"].reshape(len(queries), self.n_docs, output["context_input_ids"].shape[-1])
+        for passage_ids, scores in zip(passage_ids_list, scores_list):
+            passage_text = self.retriever.generator_tokenizer.batch_decode(passage_ids.tolist(), skip_special_tokens=True)
+            passage_text = [{"text": text} for text in passage_text]
+            docs_scores.append((passage_text, scores))
+        return docs_scores
+    
+class DPRRetrieverClient(BaseRetriever):
+
+    def __init__(self, config, logger):
+        super().__init__(config, logger)
+        self.n_docs = config.retriever.n_docs
+        self.protocol = struct.Struct("I")
+        self.header_size = struct.calcsize("I")
+        self.address = ("localhost", 8765)
+    
+    def prepare_retrieval(self, config: DragonConfig):
+        pass
+
+    def _make_message(self, queries, n_docs):
+        mbody = json.dumps({
+            "queries": queries, 
+            "n_docs": n_docs
+        }).encode()
+        return self.protocol.pack(len(mbody)) + mbody
+    
+    def retrieve_passages(self, queries):
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client.connect(self.address)
+        client.send(self._make_message(queries, self.n_docs))
+        header = b''
+        while len(header) < self.header_size:
+            chunk = client.recv(self.header_size - len(header))
+            if not chunk:
+                client.close()
+                break
+            header += chunk
+        body_len = self.protocol.unpack(header)[0]
+        mbody = b''
+        while len(mbody) < body_len:
+            chunk = client.recv(body_len - len(mbody))
+            if not chunk:
+                client.close()
+                break
+            mbody += chunk
+        docs_scores = json.loads(mbody.decode())
+        if type(docs_scores[0][0][0]) == str:
+            for query_idx in range(len(docs_scores)):
+                docs_scores[query_idx][0] = [
+                    {"text": text} for text in docs_scores[query_idx][0]
+                ]
+        return docs_scores
+
