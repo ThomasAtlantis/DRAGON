@@ -1,12 +1,11 @@
 from dataclasses import dataclass
 import math
-import queue
+from queue import Queue
 import threading
-import time
-import ipdb
 import torch
 from typing import List, Tuple
 from sentence_transformers import CrossEncoder
+
 
 from .transceiver import Message
 from .config import DragonConfig
@@ -14,12 +13,14 @@ from .generator.generator import Generator, Sampler
 # from .retriever.retriever import CustomRetriever as Retriever
 # from .retriever.retriever import DPRRetriever as Retriever
 from .retriever.retriever import DPRRetrieverClient as Retriever
+from .utils.stable import terminate_thread
 from .transceiver import Transceiver
 from .utils.mlogging import Logger
 from logging import Logger as PyLogger
 from .utils.meter import TimeMeter
 
 
+logging_level = "INFO"
 time_meter = TimeMeter()
 
 @dataclass
@@ -35,19 +36,20 @@ class Preempted(Exception):
 class PreemptableGenerator(threading.Thread, Generator):
 
     
-    def __init__(self, config: DragonConfig, input_queue: queue.Queue, output_queue: queue.Queue):
+    def __init__(self, config: DragonConfig, input_queue: Queue, output_queue: Queue):
         Generator.__init__(self, config)
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, name=__class__.__name__)
         self.logger = Logger.build(
-            __class__.__name__, level="INFO")
+            __class__.__name__, level=logging_level)
         self.input_queue = input_queue
         self.output_queue = output_queue
+        self.preempt_event = threading.Event()
         self.stop_event = threading.Event()
 
         total_modules = sum(1 for _ in self.model.modules())
         def forward_hook(module_name, depth):
             def hook(module, input, output):
-                if self.stop_event.is_set():
+                if self.preempt_event.is_set():
                     raise Preempted(f"Preempted at {depth / total_modules:.2%}")
                     # return 0
                 return output
@@ -57,10 +59,14 @@ class PreemptableGenerator(threading.Thread, Generator):
             if isinstance(module, torch.nn.Module):
                 module.register_forward_hook(forward_hook(name, idx))
 
+    def close(self):
+        self.stop_event.set()
+        self.preempt_event.set()
+        self.input_queue.put(None)
+
     def run(self):
-        while True:
+        while not self.stop_event.is_set():
             try:
-                # ipdb.set_trace()
                 input_ids, attention_mask, kwargs = self.input_queue.get()
             except Exception as e:
                 self.logger.debug("Generator stopped")
@@ -75,16 +81,12 @@ class PreemptableGenerator(threading.Thread, Generator):
                 )
             except Preempted as e:
                 self.logger.warning(e)
-                self.stop_event.clear()
+                self.preempt_event.clear()
                 self.input_queue.queue.clear()
                 self.output_queue.put(None)
             except RuntimeError as e:
                 self.logger.error(e)
-    
-    def close(self):
-        self.stop_event.set()
-        self.input_queue.put(None)
-        self.join()
+
 
 class RagPipeline:
 
@@ -97,8 +99,8 @@ class RagPipeline:
         self.aggregate_size: int = config.retriever.s_aggregate
         self.do_retrieve = config.retriever.n_docs > 0
         self.do_rerank = config.reranker.do_rerank
-        self.input_queue = queue.Queue(0)
-        self.output_queue = queue.Queue(0)
+        self.input_queue = Queue(0)
+        self.output_queue = Queue(0)
         self.generator = PreemptableGenerator(
             config, self.input_queue, self.output_queue)
         self.generator.start()
@@ -238,56 +240,215 @@ class RagPipeline:
         attention_mask = torch.cat([attention_mask, torch.ones_like(input_ids)], dim=1)
         return self._generate(input_ids, attention_mask, scores, past_key_values=past_key_values, preemptable=True), attention_mask
 
+@dataclass
+class DraftItem:
 
+    token: int
+    logprobs: torch.Tensor
+    weight: float
+    step: int
+    fingerprint: torch.Tensor = None
+
+    @staticmethod
+    def from_tuple(args):
+        item = DraftItem(*args)
+        item.logprobs = torch.as_tensor(item.logprobs, dtype=torch.float32)
+        return item
+
+    def as_tuple(self):
+        return (
+            self.token,
+            self.logprobs.cpu().tolist(),
+            self.weight,
+            self.step,
+            self.fingerprint
+        )
+
+class DraftQueue:
+
+    def __init__(self):
+        self.queue = Queue(0)
+
+    def put(self, item: DraftItem):
+        self.queue.put(item)
+
+    def get(self) -> DraftItem:
+        return self.queue.get()
+
+    def clear(self):
+        self.queue.queue.clear()
+
+    def qsize(self) -> int:
+        return self.queue.qsize()
+    
 class Aggregator(threading.Thread):
+
     def __init__(
             self, 
-            draft_tokens_loc: queue.Queue, 
-            draft_tokens_rem: queue.Queue, 
-            target_tokens: queue.Queue,
+            draft_queue_loc: DraftQueue, 
+            draft_queue_rem: DraftQueue, 
+            target_tokens: Queue,
             sampler: Sampler,
             transceiver: Transceiver,
             max_new_tokens: int
         ):
-        super().__init__()
-        self.draft_tokens_loc = draft_tokens_loc
-        self.draft_tokens_rem = draft_tokens_rem
+        threading.Thread.__init__(self, name=__class__.__name__)
+        self.draft_queue_loc = draft_queue_loc
+        self.draft_queue_rem = draft_queue_rem
         self.target_tokens = target_tokens
         self.sampler = sampler
         self.transceiver = transceiver
-        self.logger = Logger.build(__class__.__name__, level="INFO")
-        self.logger.info("hello")
+        self.logger = Logger.build(__class__.__name__, level=logging_level)
         self.logger.info("Aggregator initialized.")
         self.max_new_tokens = max_new_tokens
-
+    
+    def _get_draft_item(self, queue: DraftQueue) -> DraftItem:
+        draft_item = queue.get()
+        while draft_item.step != self.target_tokens.qsize():
+            draft_item = queue.get()
+        return draft_item
+    
     def run(self):
         while self.target_tokens.qsize() < self.max_new_tokens:
-            draft_token_l, logprobs_l, score_l, step, fingerprint = self.draft_tokens_loc.get()
-            while step != self.target_tokens.qsize():
-                draft_token_l, logprobs_l, score_l, step, fingerprint = self.draft_tokens_loc.get()
-            draft_token_r, logprobs_r, score_r, step, fingerprint = self.draft_tokens_rem.get()
-            while step != self.target_tokens.qsize():
-                draft_token_r, logprobs_r, score_r, step, fingerprint = self.draft_tokens_rem.get()
-            next_token = self.aggregate(
-                draft_token_l, draft_token_r, logprobs_l, logprobs_r, score_l, score_r)
+            draft_loc = self._get_draft_item(self.draft_queue_loc)
+            draft_rem = self._get_draft_item(self.draft_queue_rem)
+            next_token = self.aggregate(draft_loc, draft_rem)
             self.target_tokens.put(next_token)
             self.transceiver.check_recompute(False)
             self.transceiver._send_target_token(next_token, False)
 
-    def aggregate(self, draft_token_l: int, draft_token_r: int, logprobs_l: torch.Tensor, logprobs_r: torch.Tensor, score_l: float, score_r: float):
-        scores = torch.as_tensor([score_l, score_r], dtype=torch.float32, device=logprobs_l.device)
+    def aggregate(self, draft_loc: DraftItem, draft_rem: DraftItem):
+        device = draft_loc.logprobs.device
+        draft_rem.logprobs = draft_rem.logprobs.to(device)
+        scores = torch.as_tensor([draft_loc.weight, draft_rem.weight], dtype=torch.float32, device=device)
         scores = scores - torch.logsumexp(scores, dim=0)
-        logprobs = torch.stack([logprobs_l, logprobs_r], dim=1)  # (s_vocab, 2)
+        logprobs = torch.stack([draft_loc.logprobs, draft_rem.logprobs], dim=1)  # (s_vocab, 2)
         logprobs = logprobs + scores                             # (s_vocab, 2) + (2,)
         logprobs = torch.logsumexp(logprobs, dim=1)              # (s_vocab,)
         next_token = self.sampler(torch.exp(logprobs).unsqueeze(0))[0]
         
-        real_weight_l = math.exp(score_l) / (math.exp(score_l) + math.exp(score_r))
+        real_weight_l = math.exp(draft_loc.weight) / (math.exp(draft_loc.weight) + math.exp(draft_rem.weight))
         real_weight_r = 1 - real_weight_l
         self.logger.debug(
-            f"Local(draft={draft_token_l}, weight={real_weight_l:>.2f}), Remote(draft={draft_token_r}, weight={real_weight_r:>.2f}) => Target({next_token})"
+            f"Local(draft={draft_loc.token}, weight={real_weight_l:>.2f}), Remote(draft={draft_rem.token}, weight={real_weight_r:>.2f}) => Target({next_token})"
         )
         return next_token
+    
+#         self.rag.generator.preempt_event.clear()
+#         output = self.rag._generate(self.input_ids, self.attention_mask, self.scores)
+#         self.transceiver._send_draft_token(
+#             DraftItem(
+#                 token=output.next_token, 
+#                 logprobs=output.logprobs, 
+#                 weight=self.weight, step=self.step, 
+#                 fingerprint=output.fingerprint
+#             )
+#         )
+#         while True:
+#             if self.target_tokens.qsize() >= self.max_new_tokens:
+#                 break
+#             temp_output = self.rag.generate(
+#                 output.next_token, self.scores, self.attention_mask, past_key_values=output.past_key_values)
+#             if temp_output[0] is None:
+#                 # re-computing the last token
+#                 self.logger.debug("Recomputing the last token.")
+#                 self.step = self.target_tokens.qsize() - 1
+#                 output.next_token = self.target_tokens.queue[-1]
+#                 # TODO: scroll back the scores
+#                 self.attention_mask = self.attention_mask[:, : self.context_length + self.step]
+#                 output.past_key_values = list(output.past_key_values)
+#                 for i, _ in enumerate(output.past_key_values):
+#                     output.past_key_values[i] = list(output.past_key_values[i])
+#                     output.past_key_values[i][0] = output.past_key_values[i][0][..., : self.context_length + self.step, :]
+#                     output.past_key_values[i][1] = output.past_key_values[i][1][..., : self.context_length + self.step, :]
+#                     output.past_key_values[i] = tuple(output.past_key_values[i])
+#                 output.past_key_values = tuple(output.past_key_values)
+#                 continue
+#             self.step += 1
+#             output, self.attention_mask = temp_output
+#             self.transceiver._send_draft_token(
+#                 DraftItem(
+#                     token=output.next_token, 
+#                     logprobs=output.logprobs, 
+#                     weight=self.weight, step=self.step, 
+#                     fingerprint=output.fingerprint
+#                 )
+#             )
+        
+#         self.logger.debug("Generation complete.")
+
+class Decoder(threading.Thread):
+    
+    def __init__(self, rag: RagPipeline, transceiver: Transceiver, target_tokens: Queue, query: str, prompt_template: str, max_new_tokens: int, aggregator: Aggregator):
+        threading.Thread.__init__(self, name=__class__.__name__)
+        self.rag = rag
+        self.transceiver = transceiver
+        self.query = query
+        self.prompt_template = prompt_template
+        self.max_new_tokens = max_new_tokens
+        self.logger = Logger.build(__class__.__name__, logging_level)
+        self.target_tokens = target_tokens
+        self.aggregator = aggregator
+        self.logger.info("Decoder initialized.")
+
+        self.input_ids, self.attention_mask, self.scores, self.passages = self.rag._prepare_inputs_for_generation(self.query, self.prompt_template)
+        self.context_length = self.input_ids.shape[1]
+        self.target_tokens.queue.clear()
+        self.rag.generator.preempt_event.clear()
+
+        self.output_ids = []
+
+    def prefilling(self) -> CausalOutput:
+        return self.rag._generate(self.input_ids, self.attention_mask, self.scores)
+
+    def run(self):
+        step = 0
+        
+        output = self.prefilling()
+        weight = torch.logsumexp(self.scores, dim=0).item()
+        self.transceiver._send_draft_token(
+            DraftItem(
+                token=output.next_token, 
+                logprobs=output.logprobs, 
+                weight=weight, step=step, 
+                fingerprint=output.fingerprint
+            )
+        )
+        while True:
+            if self.target_tokens.qsize() >= self.max_new_tokens:
+                break
+            temp_output = self.rag.generate(
+                output.next_token, self.scores, self.attention_mask, past_key_values=output.past_key_values)
+            if temp_output[0] is None:
+                # re-computing the last token
+                self.logger.debug("Recomputing the last token.")
+                step = self.target_tokens.qsize() - 1
+                output.next_token = self.target_tokens.queue[-1]
+                # TODO: scroll back the scores
+                self.attention_mask = self.attention_mask[:, : self.context_length + step]
+                output.past_key_values = list(output.past_key_values)
+                for i, _ in enumerate(output.past_key_values):
+                    output.past_key_values[i] = list(output.past_key_values[i])
+                    output.past_key_values[i][0] = output.past_key_values[i][0][..., : self.context_length + step, :]
+                    output.past_key_values[i][1] = output.past_key_values[i][1][..., : self.context_length + step, :]
+                    output.past_key_values[i] = tuple(output.past_key_values[i])
+                output.past_key_values = tuple(output.past_key_values)
+                continue
+            step += 1
+            output, self.attention_mask = temp_output
+            # self._send_draft_token(output.next_token, output.logprobs, score, step, fingerprint=output.fingerprint)
+            self.transceiver._send_draft_token(
+                DraftItem(
+                    token=output.next_token, 
+                    logprobs=output.logprobs, 
+                    weight=weight, step=step, 
+                    fingerprint=output.fingerprint
+                )
+            )
+        self.rag.generator.preempt_event.set()
+        self.output_ids = [self.target_tokens.get() for _ in range(self.max_new_tokens)]
+        self.logger.debug("Generation complete.")
+
 
 class Dragon(Transceiver):
 
@@ -299,14 +460,14 @@ class Dragon(Transceiver):
         self.send(Message.READY_FOR_GENERATION, None)
 
         # Define draft queues
-        self.draft_tokens_rem = queue.Queue(0)
-        self.draft_tokens_loc = queue.Queue(0)
+        self.draft_queue_rem = DraftQueue()
+        self.draft_queue_loc = DraftQueue()
 
         # Define target queue
-        self.target_tokens = queue.Queue(0)
+        self.target_tokens = Queue(0)
     
-        # Aggregator
         self.aggregator = None
+        self.decoder = None
     
     def shutdown(self):
         self.send(Message.SHUTDOWN, None)
@@ -314,95 +475,64 @@ class Dragon(Transceiver):
 
     def _shutdown(self):
         self.logger.info("Shutting down.")
-        if self.aggregator and self.aggregator.is_alive():
-            self.aggregator.join()
-        if self.decoding_thread.is_alive():
-            self.decoding_thread.join()
-        if self.rag.generator.is_alive():
-            self.rag.generator.close()
+        terminate_thread(self.aggregator)
+        terminate_thread(self.decoder)
+        terminate_thread(self.rag.generator)
+        self.logger.info("Dragon threads shutdown.")
         self.terminate()
 
-    def init_aggregator(self, max_new_tokens: int):
-        if self.rank == 1:  # 1 for device-side, 0 for cloud-side
-            self.aggregator = Aggregator(
-                self.draft_tokens_loc, 
-                self.draft_tokens_rem, 
-                self.target_tokens, 
-                self.rag.generator.sampler,
-                self,
-                max_new_tokens
-            )
-            self.aggregator.start()
-
-    def query(self, query: str, prompt_template: str, max_new_tokens: int):
-        self.output_ids = []
-        self.generate_rem(query, prompt_template, max_new_tokens)
-        self.init_aggregator(max_new_tokens)
-        self.decoding_thread = threading.Thread(target=self.generate_loc, args=(query, prompt_template, max_new_tokens))
-        self.decoding_thread.start()
-        # decoded_output = self.generate_loc(query, prompt_template, max_new_tokens)
-        self.decoding_thread.join()
-        self.aggregator.join()
-        self.logger.debug(f"Got output_ids {self.output_ids} of length {len(self.output_ids)}.")
-        decoded_output = self.rag.generator.tokenizer.decode(self.output_ids, skip_special_tokens=True)
-        return decoded_output
+    def _build_aggregator(self, max_new_tokens: int):
+        thread = Aggregator(
+            self.draft_queue_loc, 
+            self.draft_queue_rem, 
+            self.target_tokens, 
+            self.rag.generator.sampler,
+            self,
+            max_new_tokens
+        )
+        thread.start()
+        return thread
     
-    def generate_rem(self, query: str, prompt_template: str, max_new_tokens: int):
-        self.send(Message.BEGIN_GENERATE, (query, prompt_template, max_new_tokens))
-
-    def generate_loc(self, query: str, prompt_template: str, max_new_tokens: int):
-        # start a new thread to do generation
-
-        step = 0
-        input_ids, attention_mask, scores, passages = self.rag._prepare_inputs_for_generation(query, prompt_template)
-        context_length = input_ids.shape[1]
-        output = self.rag._generate(input_ids, attention_mask, scores)
-        score = torch.logsumexp(scores, dim=0).item()
-        self._send_draft_token(output.next_token, output.logprobs, score, step, fingerprint=output.fingerprint)
-        while True:
-            if self.target_tokens.qsize() >= max_new_tokens:
-                break
-            temp_output = self.rag.generate(
-                output.next_token, scores, attention_mask, past_key_values=output.past_key_values)
-            if temp_output[0] is None:
-                # re-computing the last token
-                self.logger.debug("Recomputing the last token.")
-                step = self.target_tokens.qsize() - 1
-                output.next_token = self.target_tokens.queue[-1]
-                # TODO: scroll back the scores
-                attention_mask = attention_mask[:, : context_length + step]
-                output.past_key_values = list(output.past_key_values)
-                for i, _ in enumerate(output.past_key_values):
-                    output.past_key_values[i] = list(output.past_key_values[i])
-                    output.past_key_values[i][0] = output.past_key_values[i][0][..., : context_length + step, :]
-                    output.past_key_values[i][1] = output.past_key_values[i][1][..., : context_length + step, :]
-                    output.past_key_values[i] = tuple(output.past_key_values[i])
-                output.past_key_values = tuple(output.past_key_values)
-                continue
-            step += 1
-            output, attention_mask = temp_output
-            self._send_draft_token(output.next_token, output.logprobs, score, step, fingerprint=output.fingerprint)
-        if self.aggregator:
-            self.aggregator.join()
-        # time.sleep(2) # wait the generator to finish
-        self.rag.generator.stop_event.clear()
-        self.logger.debug("Generation complete.")
-        self.output_ids = [self.target_tokens.get() for _ in range(max_new_tokens)]
-        # clean up
+    def _build_decoder(self, query, prompt_template, max_new_tokens):
+        thread = Decoder(
+            self.rag, self, self.target_tokens, 
+            query, prompt_template, max_new_tokens, 
+            self.aggregator)
+        thread.start()
+        return thread
+    
+    def _clean_up(self):
         self.receive_queue.queue.clear()
         self.rag.generator.input_queue.queue.clear()
         self.rag.generator.output_queue.queue.clear()
-        self.draft_tokens_loc.queue.clear()
-        self.draft_tokens_rem.queue.clear()
+        self.draft_queue_loc.clear()
+        self.draft_queue_rem.clear()
         self.target_tokens.queue.clear()
         self.logger.debug("Cleaned up.")
+
+    def query(self, query: str, prompt_template: str, max_new_tokens: int):
+        # Inform remote decoding
+        self._send_begin_generate(query, prompt_template, max_new_tokens)
+        
+        # Local decoding and aggregating
+        self.decoder = self._build_decoder(query, prompt_template, max_new_tokens)
+        self.aggregator = self._build_aggregator(max_new_tokens)
+        self.decoder.join()
+        self.aggregator.join()
+        self._clean_up()
+        
+        # Get output text
+        output_ids = self.decoder.output_ids
+        output_txt = self.rag.generator.tokenizer.decode(
+            output_ids, skip_special_tokens=True)
+        return output_txt
 
     def check_recompute(self, accept: bool):
         if not accept:
             self.logger.debug("Preempting the current generation process.")
-            self.rag.generator.stop_event.set()
-            self.draft_tokens_loc.queue.clear()
-            self.draft_tokens_rem.queue.clear()
+            self.rag.generator.preempt_event.set()
+            self.draft_queue_loc.clear()
+            self.draft_queue_rem.clear()
             
 
     def collect_observers(self):
@@ -424,16 +554,12 @@ class Dragon(Transceiver):
         if mtype != Message.BEGIN_GENERATE: return False
         query, prompt_template, max_new_tokens = mbody
         self.logger.debug(f"Generating response for query: {query}")
-        self.decoding_thread = threading.Thread(target=self.generate_loc, args=(query, prompt_template, max_new_tokens))
-        self.decoding_thread.start()
-        # decoded_output = self.generate_loc(query, prompt_template, max_new_tokens)
+        self.decoder = self._build_decoder(query, prompt_template, max_new_tokens)
         return True
     
     def _rx_draft_token(self, mtype: int, mbody: object):
         if mtype != Message.DRAFT_TOKEN: return False
-        next_token, logprobs, score, step, fingerprint = mbody
-        logprobs = torch.as_tensor(logprobs, dtype=torch.float32, device=self.rag.device)
-        self.draft_tokens_rem.put((next_token, logprobs, score, step, fingerprint))
+        self.draft_queue_rem.put(DraftItem.from_tuple(mbody))
         return True
     
     def _rx_target_token(self, mtype: int, mbody: object):
@@ -449,10 +575,13 @@ class Dragon(Transceiver):
         self.logger.info("Received shutdown signal.")
         self._shutdown()
         return True
+    
+    def _send_begin_generate(self, query: str, prompt_template: str, max_new_tokens: int):
+        self.send(Message.BEGIN_GENERATE, (query, prompt_template, max_new_tokens))
 
-    def _send_draft_token(self, token: int, logprobs: torch.Tensor, score: float, step: int, fingerprint):
-        self.draft_tokens_loc.put((token, logprobs, score, step, fingerprint))
-        self.send(Message.DRAFT_TOKEN, (token, logprobs.tolist(), score, step, fingerprint))
+    def _send_draft_token(self, draft_item: DraftItem):
+        self.draft_queue_loc.put(draft_item)
+        self.send(Message.DRAFT_TOKEN, draft_item.as_tuple())
     
     def _send_target_token(self, token: int, accept: bool):
         self.send(Message.TARGET_TOKEN, (token, accept))

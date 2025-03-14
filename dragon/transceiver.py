@@ -7,9 +7,11 @@ import socket
 
 from typing import List, Protocol, Tuple
 from logging import Logger as PyLogger
-from dragon.config import DragonConfig
-from dragon.utils.mlogging import Logger
+from .config import DragonConfig
+from .utils.mlogging import Logger
+from .utils.stable import terminate_thread
 
+logging_level = "INFO"
 
 class Message:
     ACK = 0
@@ -41,42 +43,46 @@ class ReceiveListener(threading.Thread):
             self, socket: socket.socket, 
             queue: queue.Queue,
             logger: PyLogger):
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, name=__class__.__name__)
         self.stop_event = threading.Event()
         self.queue = queue
         self.socket = socket
         self.socket.listen(1)
         self.logger = logger
         self.header_size = struct.calcsize(Message.header)
+        self.conn = None
 
-    def stop(self):
-        self.stop_event.set()
+    def close(self):
+        if self.conn:
+            self.conn.close()
+            self.conn = None
+
 
     def run(self):
-        conn, addr = self.socket.accept()
+        self.conn, addr = self.socket.accept()
         self.logger.info(f"Connection accepted from {addr}")
         while not self.stop_event.is_set():
             header = b''
             while len(header) < self.header_size:
-                chunk = conn.recv(self.header_size - len(header))
+                chunk = self.conn.recv(self.header_size - len(header))
                 if not chunk:
                     self.logger.warning("Connection closed prematurely.")
-                    conn.close()
+                    if self.conn: self.conn.close()
                     return
                 header += chunk
             mtype, body_len = struct.unpack(Message.header, header)
             mbody = b''
             while len(mbody) < body_len:
-                chunk = conn.recv(body_len - len(mbody))
+                chunk = self.conn.recv(body_len - len(mbody))
                 if not chunk:
                     self.logger.warning("Incomplete message body received.")
-                    conn.close()
+                    if self.conn: self.conn.close()
                     return
                 mbody += chunk
             self.queue.put((mtype, mbody))
             self.logger.debug(f"Received Message(mtype={mtype2str[mtype]}, len={body_len})")
         self.logger.debug("Connection closed.")
-        conn.close()
+        if self.conn: self.conn.close()
 
 
 class Observer(Protocol):
@@ -88,13 +94,13 @@ class ReceiveHandler(threading.Thread):
     def __init__(
             self, queue: queue.Queue,
             observers: List[Observer]):
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, name=__class__.__name__)
         self.stop_event = threading.Event()
         self.queue = queue
         self.observers = observers
         # self.logger = Logger.build(__class__.__name__, level="INFO")
 
-    def stop(self):
+    def close(self):
         self.stop_event.set()
         self.queue.put((Message.EMPTY, pickle.dumps(None)))
     
@@ -118,7 +124,7 @@ class Transceiver:
         self.config = config
         self.rank = config.trans.rank
         self.name = f"Node{config.trans.rank:>02}"
-        self.logger = Logger.build(self.name, level='INFO')
+        self.logger = Logger.build(self.name, level=logging_level)
         self.init_receiver(port=self.config.trans.rx_port)
         self.logger.info("Receiver initialized.")
         self.init_sender(port=self.config.trans.tx_port)
@@ -162,13 +168,13 @@ class Transceiver:
         self.receive_handler.start()
 
     def terminate(self):
-        print()
-        if self.rx_socket.fileno() != -1:
-            self.rx_socket.close()
-        if self.tx_socket.fileno() != -1:
-            self.tx_socket.close()
-        self.receive_listener.stop()
-        if self.receive_listener.is_alive():
-            self.receive_listener.join()
-        self.receive_handler.stop()
+        self.rx_socket.close()
+        self.tx_socket.close()
+        # self.receive_listener.stop()
+        # if self.receive_listener.is_alive():
+        #     self.receive_listener.join()
+        # self.receive_handler.stop()
+        self.logger.info("Socket closed.")
+        terminate_thread(self.receive_listener)
+        terminate_thread(self.receive_handler)
         self.logger.info("Transceiver stopped.")

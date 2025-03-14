@@ -1,5 +1,6 @@
 import os
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+import threading
 import time
 from dragon.utils.stable import seed_everything
 from dragon.config import DragonConfig
@@ -29,7 +30,7 @@ if __name__ == "__main__":
         time.sleep(0.1)
     queries = [
         "who came up with the theory of relativity",
-        "how many moons does mars have",
+        "in greek mythology who was the goddess of spring growth",
     ]
     max_new_tokens = 10
     template = "context: {context} given the context, answer the question: {query}? " 

@@ -23,16 +23,12 @@ rag_tok = RagTokenForGeneration(config)
 tokenizer = rag_tok.generator.tokenizer
 queries = [
     "who came up with the theory of relativity",
-    "how many moons does mars have",
+    "in greek mythology who was the goddess of spring growth",
 ]
 max_new_tokens = 10
 template = "context: {context} given the context, answer the question: {query}? " 
 
 results = []
-queries = [
-    "who came up with the theory of relativity",
-    "how many moons does mars have",
-]
 for query in queries:
     query_ids = tokenizer.encode(query)    
     output_ids_tok, _ = rag_tok.generate(query_ids, max_new_tokens=max_new_tokens, template=template)
