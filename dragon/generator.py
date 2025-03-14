@@ -1,16 +1,21 @@
+from dataclasses import dataclass
+from queue import Queue
+import threading
+from typing import List
 import numpy as np
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers import PreTrainedModel, PreTrainedTokenizer
-from ..config import DragonConfig
-from ..utils.mlogging import Logger
-from ..utils.stable import seed_everything
+from .config import DragonConfig
+from .utils.mlogging import Logger
+from .utils.stable import seed_everything
 from transformers.modeling_outputs import CausalLMOutputWithPast
 import torch
 
-logger = Logger.build(__name__, level="INFO")
+logging_level = "INFO"
 
 class Sampler:
     def __init__(self, config: DragonConfig.sampler):
+        self.logger = Logger.build(__class__.__name__, level=logging_level)
         self.top_k = config.top_k
         self.top_p = config.top_p
         self.temperature = config.temperature
@@ -37,9 +42,17 @@ class Sampler:
         next_token_id = torch.multinomial(probs, num_samples=1).squeeze(-1)
         return next_token_id.cpu().tolist()
 
+@dataclass
+class CausalOutput:
+    next_token: int
+    logprobs: torch.Tensor
+    weight: float
+    past_key_values: List[torch.Tensor] = None
+
 class Generator:
 
     def __init__(self, config: DragonConfig):
+        self.logger = Logger.build(__class__.__name__, level=logging_level)
         model_name = config.generator.model
         self.device = torch.device(config.device)
         self.sampler = Sampler(config.sampler)
@@ -82,3 +95,60 @@ class Generator:
                 **kwargs
             )
         return output    
+
+class Preempted(Exception):
+    pass
+
+class PreemptableGenerator(threading.Thread, Generator):
+
+    
+    def __init__(self, config: DragonConfig, input_queue: Queue, output_queue: Queue):
+        Generator.__init__(self, config)
+        threading.Thread.__init__(self, name=__class__.__name__)
+        self.logger = Logger.build(
+            __class__.__name__, level=logging_level)
+        self.input_queue = input_queue
+        self.output_queue = output_queue
+        self.preempt_event = threading.Event()
+        self.stop_event = threading.Event()
+
+        total_modules = sum(1 for _ in self.model.modules())
+        def forward_hook(module_name, depth):
+            def hook(module, input, output):
+                if self.preempt_event.is_set():
+                    raise Preempted(f"Preempted at {depth / total_modules:.2%}")
+                    # return 0
+                return output
+            return hook
+
+        for idx, (name, module) in enumerate(self.model.named_modules()):
+            if isinstance(module, torch.nn.Module):
+                module.register_forward_hook(forward_hook(name, idx))
+
+    def close(self):
+        self.stop_event.set()
+        self.preempt_event.set()
+        self.input_queue.put(None)
+
+    def run(self):
+        while not self.stop_event.is_set():
+            try:
+                input_ids, attention_mask, kwargs = self.input_queue.get()
+            except Exception as e:
+                self.logger.debug("Generator stopped")
+                break
+            try:
+                self.output_queue.put(
+                    self(
+                        input_ids=input_ids, 
+                        attention_mask=attention_mask,
+                        **kwargs
+                    )
+                )
+            except Preempted as e:
+                self.logger.warning(e)
+                self.preempt_event.clear()
+                self.input_queue.queue.clear()
+                self.output_queue.put(None)
+            except RuntimeError as e:
+                self.logger.error(e)

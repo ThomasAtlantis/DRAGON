@@ -8,21 +8,22 @@ import socket
 import struct
 import torch
 
-import requests, json
+import json
 from typing import List, Dict, Protocol, Tuple
 from tqdm import trange
 from transformers import PreTrainedTokenizer, PreTrainedModel
 from transformers import RagRetriever
 from transformers import DPRQuestionEncoder
-from ..utils.data_process.data_utils import load_passages
+from .utils.data_process.data_utils import load_passages
 from .indexer import Indexer
-from ..config import DragonConfig
-from ..utils.mlogging import Logger
-from ..utils.meter import TimeMeter
-from ..utils.cache import Cache
-from ..utils.data_process import text_utils
+from .config import DragonConfig
+from .utils.mlogging import Logger
+from .utils.meter import TimeMeter
+from .utils.cache import Cache
+from .utils.data_process import text_utils
 
 time_meter = TimeMeter()
+logging_level = "INFO"
 
 # Or, if you want to support Python 3.7 and below, install the typing_extensions
 # module via pip and do the below:
@@ -34,8 +35,8 @@ class TextProcessor(Protocol):
 
 class BaseRetriever(ABC):
 
-    def __init__(self, config: DragonConfig, logger: Logger):
-        self.logger = logger
+    def __init__(self, config: DragonConfig):
+        self.logger = Logger.build(__class__.__name__, logging_level)
         self.config = config
 
     @abstractmethod
@@ -52,8 +53,8 @@ class CustomRetriever(BaseRetriever):
     Retriever class for retrieving data from the database.
     """
 
-    def __init__(self, config: DragonConfig, logger: Logger):
-        super().__init__(config, logger)
+    def __init__(self, config: DragonConfig):
+        super().__init__(config)
         self.model: PreTrainedModel
         self.tokenizer: PreTrainedTokenizer
         self.n_docs = config.retriever.n_docs
@@ -62,7 +63,7 @@ class CustomRetriever(BaseRetriever):
 
         # Model and Tokenizer initialization
         retriever_module = importlib.import_module(
-            f"dragon.retriever.models.{config.retriever.model}")
+            f"dragon.models.{config.retriever.model}")
         self.model, self.tokenizer = retriever_module.load_retriever()
         self.model = self.model.to(torch.device(config.device))
         if config.fp16: self.model = self.model.half()
@@ -150,8 +151,8 @@ class CustomRetriever(BaseRetriever):
 
 class DPRRetriever(BaseRetriever):
 
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
+    def __init__(self, config):
+        super().__init__(config)
         self.n_docs = config.retriever.n_docs
     
     def prepare_retrieval(self, config: DragonConfig):
@@ -184,8 +185,8 @@ class DPRRetriever(BaseRetriever):
     
 class DPRRetrieverClient(BaseRetriever):
 
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
+    def __init__(self, config):
+        super().__init__(config)
         self.n_docs = config.retriever.n_docs
         self.protocol = struct.Struct("I")
         self.header_size = struct.calcsize("I")

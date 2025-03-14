@@ -17,7 +17,7 @@ python -u run.py \
 from tqdm import tqdm
 from dragon.config import DragonConfig
 from dragon.utils.configure import Field as F
-from dragon.rag import RagForGeneration
+from dragon.baselines.rag import RagForGeneration
 from dragon.utils.data_process.data_utils import ContextualLMSampleLoader
 from experiments.evaluator import Evaluator
 from experiments.metrics import CrossEntropy
@@ -68,7 +68,7 @@ class LanguageModelingEvaluator(Evaluator):
         if retriever := self.rag.retriever: retriever.query2docs.flush()
 
     def compute_doc_len(self):
-        from dragon.rag import group_docs
+        from dragon.baselines.rag import group_docs
         """
         HF_ENDPOINT=https://hf-mirror.com \
         python -u run.py \

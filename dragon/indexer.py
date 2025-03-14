@@ -4,8 +4,8 @@ import faiss
 import numpy as np
 from pathlib import Path
 
-from ..utils.meter import TimeMeter
-from ..utils.mlogging import Logger
+from .utils.meter import TimeMeter
+from .utils.mlogging import Logger
 
 
 logger = Logger.build(__name__, level="INFO")

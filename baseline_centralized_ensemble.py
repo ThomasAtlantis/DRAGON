@@ -2,7 +2,7 @@ import os
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 from dragon.utils.stable import seed_everything
 from dragon.config import DragonConfig
-from dragon.rag import RagTokenForGeneration
+from dragon.baselines.rag import RagTokenForGeneration
 from dragon.utils.mlogging import Logger
     
 seed_everything(42)

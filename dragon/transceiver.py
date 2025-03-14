@@ -118,7 +118,7 @@ class ReceiveHandler(threading.Thread):
             #     self.logger.info(f"Notified observer `{observer.__name__}`.")
 
 
-class Transceiver:
+class BaseTransceiver:
     
     def __init__(self, config: DragonConfig):
         self.config = config
@@ -170,10 +170,6 @@ class Transceiver:
     def terminate(self):
         self.rx_socket.close()
         self.tx_socket.close()
-        # self.receive_listener.stop()
-        # if self.receive_listener.is_alive():
-        #     self.receive_listener.join()
-        # self.receive_handler.stop()
         self.logger.info("Socket closed.")
         terminate_thread(self.receive_listener)
         terminate_thread(self.receive_handler)
