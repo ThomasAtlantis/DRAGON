@@ -5,8 +5,7 @@ from tqdm import tqdm
 
 from ..config import DragonConfig
 from ..generator import Generator
-# from .retriever.retriever import Retriever
-from ..retriever.retriever import DPRRetrieverClient as Retriever
+from ..retriever import DPRRetrieverClient as Retriever
 from ..utils.mlogging import Logger
 from ..utils.meter import TimeMeter
 
@@ -41,7 +40,7 @@ class RagForGeneration:
         self.aggregate_size: int = config.retriever.s_aggregate
         
         if self.do_retrieval:
-            self.retriever = Retriever(config, logger)
+            self.retriever = Retriever(config)
             self.retriever.prepare_retrieval(config)
 
     def _prepare_inputs_for_generation(
@@ -227,7 +226,7 @@ class RagTokenForGeneration(RagForGeneration):
         scores_list = torch.vstack(scores_list).exp()  # (max_new_tokens, s_aggregate)
         # with open("logs/scores.pkl", "wb") as f:
         #     pickle.dump(scores_list.cpu().tolist(), f)
-        return output_ids, logprobs
+        return output_ids, logprobs, doc_texts
     
 class RagSequenceForGeneration(RagForGeneration):
 

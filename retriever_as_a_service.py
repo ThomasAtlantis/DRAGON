@@ -1,10 +1,8 @@
 import json
-from dragon.retriever.retriever import DPRRetriever
-from dragon.utils.mlogging import Logger
-# from flask import Flask, request, jsonify
-import json
 import socket
 import struct
+from dragon.retriever import DPRRetriever
+from dragon.utils.mlogging import Logger
 
 
 class Config:
@@ -14,30 +12,12 @@ class Config:
 HOST, PORT = "localhost", 8765
 
 if __name__ == "__main__":
-    # app = Flask(__name__)
     config = Config()
     logger = Logger.build("RaaS", "INFO")
-    retriever = DPRRetriever(config, logger)
+    retriever = DPRRetriever(config)
     retriever.prepare_retrieval(config)
     logger.info("Retriever is ready!")
-    # @app.route("/quit", methods=["POST"])
-    # def quit(): exit(0)
 
-    # @app.route("/test", methods=["POST"])
-    # def test():
-    #     queries = request.json.get("queries")
-    #     n_docs = request.json.get("n_docs")
-    #     return {"queries": queries, "n_docs": n_docs}
-
-    # @app.route("/retrieve", methods=["POST"])
-    # def evaluate_endpoint():
-    #     queries = request.json.get("queries")
-    #     n_docs = request.json.get("n_docs")
-    #     retriever.n_docs = n_docs
-    #     result = retriever.retrieve_passages(queries)
-    #     return jsonify(result)
-
-    # app.run(host=HOST, port=PORT)
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((HOST, PORT))
     server.listen(1)

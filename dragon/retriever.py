@@ -156,13 +156,11 @@ class DPRRetriever(BaseRetriever):
         self.n_docs = config.retriever.n_docs
     
     def prepare_retrieval(self, config: DragonConfig):
-        model_path = "models/dpr-nq/retriever"
-        passages_path = "datasets/retrieval_corpus/wiki_dpr/passages"
-        index_path = "datasets/retrieval_corpus/wiki_dpr/index.faiss"
+        model_path = "/data/lsy/workspace/DragonLab/weights/rag-token-nq"
+        index_path = "/data/lsy/workspace/DragonLab/data/wiki_dpr/nq_compressed.faiss"
         query_encoder_path = "models/dpr-nq/query_encoder"
-        self.retriever = RagRetriever.from_pretrained(
-            model_path, index_name="custom", use_dummy_dataset=False,
-            passages_path=passages_path, index_path=index_path)
+        self.retriever = RagRetriever.from_pretrained(model_path, n_docs=8, index_path=index_path)
+        self.retriever.init_retrieval()  # This is crucial
         self.query_encoder = DPRQuestionEncoder.from_pretrained(query_encoder_path)
     
     def retrieve_passages(self, queries: List[str]):
@@ -222,10 +220,8 @@ class DPRRetrieverClient(BaseRetriever):
                 break
             mbody += chunk
         docs_scores = json.loads(mbody.decode())
-        if type(docs_scores[0][0][0]) == str:
-            for query_idx in range(len(docs_scores)):
-                docs_scores[query_idx][0] = [
-                    {"text": text} for text in docs_scores[query_idx][0]
-                ]
+        for ds in docs_scores:
+            for doc in ds[0]:  # RagRetriever has concatenated passages with the query
+                doc["text"] = doc["text"].split("//")[0]
         return docs_scores
 

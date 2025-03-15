@@ -118,13 +118,11 @@ class ReceiveHandler(threading.Thread):
             #     self.logger.info(f"Notified observer `{observer.__name__}`.")
 
 
-class BaseTransceiver:
+class Transceiver:
     
     def __init__(self, config: DragonConfig):
+        self.logger = Logger.build(__class__.__name__, level=logging_level)
         self.config = config
-        self.rank = config.trans.rank
-        self.name = f"Node{config.trans.rank:>02}"
-        self.logger = Logger.build(self.name, level=logging_level)
         self.init_receiver(port=self.config.trans.rx_port)
         self.logger.info("Receiver initialized.")
         self.init_sender(port=self.config.trans.tx_port)

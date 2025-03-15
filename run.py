@@ -1,4 +1,6 @@
-import sys; sys.path.append(".")
+import sys, os
+sys.path.append(".")
+os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 from dragon.utils.stable import seed_everything
 seed_everything(42)
 

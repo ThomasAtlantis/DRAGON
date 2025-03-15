@@ -6,9 +6,7 @@ from .config import DragonConfig
 from .generator import CausalOutput, PreemptableGenerator
 from .utils.meter import TimeMeter
 from .utils.mlogging import Logger
-# from .retriever.retriever import CustomRetriever as Retriever
-# from .retriever.retriever import DPRRetriever as Retriever
-from .retriever import DPRRetrieverClient as Retriever
+
 
 logging_level = "INFO"
 time_meter = TimeMeter()
@@ -33,6 +31,13 @@ class Rag:
 
         self.retriever = None
         if self.do_retrieve:
+            if "wikitext" in config.retriever.passages:
+                from .retriever import CustomRetriever as Retriever
+            elif config.retriever.passages == "wikipedia[local]":
+                from .retriever import DPRRetriever as Retriever
+            elif config.retriever.passages == "wikipedia[remote]":
+                from .retriever import DPRRetrieverClient as Retriever
+
             self.retriever = Retriever(config)
             self.retriever.prepare_retrieval(config)
             

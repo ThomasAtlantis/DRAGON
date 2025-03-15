@@ -5,7 +5,7 @@ import threading
 from .rag import Rag
 from .generator import CausalOutput
 from .queues import DraftItem
-from .transceiver import BaseTransceiver
+from .transceiver import Transceiver
 from .utils.mlogging import Logger
 
 
@@ -13,7 +13,7 @@ logging_level = "INFO"
 
 class Decoder(threading.Thread):
     
-    def __init__(self, rag: Rag, transceiver: BaseTransceiver, target_tokens: Queue, query: str, prompt_template: str, n_steps: int):
+    def __init__(self, rag: Rag, transceiver: Transceiver, target_tokens: Queue, query: str, prompt_template: str, n_steps: int):
         threading.Thread.__init__(self, name=__class__.__name__)
         self.logger = Logger.build(__class__.__name__, logging_level)
         self.rag = rag
