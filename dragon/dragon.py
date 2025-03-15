@@ -1,4 +1,5 @@
 from queue import Queue
+import threading
 from .rag import Rag
 from .transceiver import Message
 from .config import DragonConfig
@@ -17,21 +18,23 @@ class Dragon:
 
     def __init__(self, config: DragonConfig):
         self.logger = Logger.build(__class__.__name__, level=logging_level)
-        self.transceiver = Transceiver(config)
-        self.rag = Rag(config)
         self.ready_for_generation = False
+        
+        self.transceiver = Transceiver(config)
         self.transceiver.register_observers(self._collect_observers())
-        self.transceiver.send(Message.READY_FOR_GENERATION, None)
+        self.rag = Rag(config)
 
-        # Define draft queues
         self.draft_queue_rem = DraftQueue()
         self.draft_queue_loc = DraftQueue()
 
-        # Define target queue
         self.target_tokens = Queue(0)
+        self.output_tokens = Queue(0)
     
         self.aggregator = None
         self.decoder = None
+
+        self.transceiver.send(Message.READY_FOR_GENERATION, None)
+        self.is_client = config.trans.rank != 0
     
     def shutdown(self):
         self.transceiver.send(Message.SHUTDOWN, None)
@@ -51,7 +54,6 @@ class Dragon:
             self.draft_queue_rem, 
             self.target_tokens, 
             self.rag.generator.sampler,
-            self,
             max_new_tokens
         )
         thread.start()
@@ -59,7 +61,7 @@ class Dragon:
     
     def _build_decoder(self, query, prompt_template, max_new_tokens):
         thread = Decoder(
-            self.rag, self, self.target_tokens, 
+            self.rag, self._send_draft_token, self.output_tokens, 
             query, prompt_template, max_new_tokens)
         thread.start()
         return thread
@@ -73,29 +75,44 @@ class Dragon:
         self.target_tokens.queue.clear()
         self.logger.debug("Cleaned up.")
 
+    def _start_up(self, query, prompt_template, max_new_tokens):
+        # Local decoding and aggregating
+        self.recompute_checker = threading.Thread(
+            target=self.check_recompute, args=(max_new_tokens,))
+        self.recompute_checker.start()
+        self.decoder = self._build_decoder(query, prompt_template, max_new_tokens)
+        if self.is_client:
+            self.aggregator = self._build_aggregator(max_new_tokens)
+            self.decoder.join()
+            self.aggregator.join()
+            self.recompute_checker.join()
+            self._clean_up()
+
     def query(self, query: str, prompt_template: str, max_new_tokens: int):
         # Inform remote decoding
         self._send_begin_generate(query, prompt_template, max_new_tokens)
-        
-        # Local decoding and aggregating
-        self.decoder = self._build_decoder(query, prompt_template, max_new_tokens)
-        self.aggregator = self._build_aggregator(max_new_tokens)
-        self.decoder.join()
-        self.aggregator.join()
-        self._clean_up()
-        
+        self._start_up(query, prompt_template, max_new_tokens)
+
         # Get output text
         output_ids = self.decoder.output_ids
         output_txt = self.rag.generator.tokenizer.decode(
             output_ids, skip_special_tokens=True)
         return output_txt
 
-    def check_recompute(self, accept: bool):
-        if not accept:
-            self.logger.debug("Preempting the current generation process.")
-            self.rag.generator.preempt_event.set()
-            self.draft_queue_loc.clear()
-            self.draft_queue_rem.clear()
+    def check_recompute(self, n_steps: int):
+        step = 0
+        while step < n_steps:
+            target_token, accept_loc, accept_rem = self.target_tokens.get()
+            if self.is_client:
+                self._send_target_token(target_token, accept_loc, accept_rem)
+            self.output_tokens.put(target_token)
+            if not accept_loc:
+                self.logger.debug("Preempting the current generation process.")
+                self.rag.generator.preempt_event.set()
+                self.draft_queue_loc.clear()
+            if not accept_rem:
+                self.draft_queue_rem.clear()
+            step += 1
 
     def _collect_observers(self):
         return [
@@ -116,7 +133,7 @@ class Dragon:
         if mtype != Message.BEGIN_GENERATE: return False
         query, prompt_template, max_new_tokens = mbody
         self.logger.debug(f"Generating response for query: {query}")
-        self.decoder = self._build_decoder(query, prompt_template, max_new_tokens)
+        self._start_up(query, prompt_template, max_new_tokens)
         return True
     
     def _rx_draft_token(self, mtype: int, mbody: object):
@@ -126,10 +143,7 @@ class Dragon:
     
     def _rx_target_token(self, mtype: int, mbody: object):
         if mtype != Message.TARGET_TOKEN: return False
-        target_token, accept = mbody
-        self.target_tokens.put(target_token)
-        self.check_recompute(accept)
-        # self.logger.info("Successfully received target token.")
+        self.target_tokens.put(mbody)
         return True
 
     def _rx_shutdown(self, mtype: int, mbody: object):
@@ -145,5 +159,6 @@ class Dragon:
         self.draft_queue_loc.put(draft_item)
         self.transceiver.send(Message.DRAFT_TOKEN, draft_item.as_tuple())
     
-    def _send_target_token(self, token: int, accept: bool):
-        self.transceiver.send(Message.TARGET_TOKEN, (token, accept))
+    def _send_target_token(self, token: int, accept_loc: bool, accept_rem: bool):
+        # remote and local are relative concepts
+        self.transceiver.send(Message.TARGET_TOKEN, (token, accept_rem, accept_loc))
