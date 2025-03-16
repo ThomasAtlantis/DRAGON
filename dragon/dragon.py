@@ -33,8 +33,9 @@ class Dragon:
         self.aggregator = None
         self.decoder = None
 
-        self.transceiver.send(Message.READY_FOR_GENERATION, None)
         self.is_client = config.trans.rank != 0
+        self.aggregaton_mode = config.aggregator.mode
+        self.transceiver.send(Message.READY_FOR_GENERATION, None)
     
     def shutdown(self):
         self.transceiver.send(Message.SHUTDOWN, None)
@@ -54,7 +55,8 @@ class Dragon:
             self.draft_queue_rem, 
             self.target_tokens, 
             self.rag.generator.sampler,
-            max_new_tokens
+            max_new_tokens,
+            self.aggregaton_mode
         )
         thread.start()
         return thread

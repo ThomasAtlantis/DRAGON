@@ -21,16 +21,13 @@ class Sampler:
         self.temperature = config.temperature
         self.greedy = not config.do_sample
 
-    def __call__(self, probs: torch.Tensor) -> np.ndarray:
-        """
-        @param probs: (s_sequence, s_vocab) tensor
-        """
+    def transform(self, probs: torch.Tensor) -> torch.Tensor:
         if self.greedy:
-            return torch.argmax(probs, dim=-1).cpu().tolist()
+            max_index = torch.argmax(probs, dim=-1)
+            return torch.nn.functional.one_hot(max_index, num_classes=probs.shape[-1]).float()
         if self.top_k > 0:
             values, indices = torch.topk(probs, self.top_k, dim=-1)
             probs = torch.zeros_like(probs).scatter_(-1, indices, values)
-
         if self.top_p < 1.0:
             sorted_probs, sorted_indices = torch.sort(probs, descending=True, dim=-1)
             cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
@@ -39,6 +36,12 @@ class Sampler:
             i_indices, j_indices = torch.where(remove_sorted_indices_mask)
             vocab_indices = sorted_indices[i_indices, j_indices]
             probs[i_indices, vocab_indices] = 0
+        return probs
+    def __call__(self, probs: torch.Tensor) -> np.ndarray:
+        """
+        @param probs: (s_sequence, s_vocab) tensor
+        """
+        probs = self.transform(probs)
         next_token_id = torch.multinomial(probs, num_samples=1).squeeze(-1)
         return next_token_id.cpu().tolist()
 

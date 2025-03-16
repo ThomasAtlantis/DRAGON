@@ -23,6 +23,7 @@ class Rag:
         self.aggregate_size: int = config.retriever.s_aggregate
         self.do_retrieve = config.retriever.n_docs > 0
         self.do_rerank = config.reranker.do_rerank
+        self.importance_sampling = config.aggregator.mode == "speculative"
         self.input_queue = Queue(0)
         self.output_queue = Queue(0)
         self.generator = PreemptableGenerator(
@@ -156,7 +157,11 @@ class Rag:
             logprobs = logprobs.permute(1, 0)              # (s_vocab, s_aggregate)
             logprobs = logprobs + logscores                # (s_vocab, s_aggregate) + (s_aggregate,)
             logprobs = torch.logsumexp(logprobs, dim=1)    # (s_vocab,)
-            next_token = self.generator.sampler(torch.exp(logprobs).unsqueeze(0))[0]
+            if self.importance_sampling:
+                next_token = torch.multinomial(torch.exp(logprobs), num_samples=1).squeeze().cpu().item()
+            else:
+                next_token = self.generator.sampler(torch.exp(logprobs).unsqueeze(0))[0]
+
         self.logger.debug(f"Decoding complete in {time_meter.timer('Decoding').duration:.4f} seconds.")
         
         weight = torch.logsumexp(scores, dim=0).item()

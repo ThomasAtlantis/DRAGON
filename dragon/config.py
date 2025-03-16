@@ -47,6 +47,9 @@ class DragonConfig(Configure):
         top_k               = F(int,  default=50,    help="Top-k sampling")
         top_p               = F(float,default=1.0,   help="Top-p sampling")
     
+    class aggregator:
+        mode               = F(str,  default="synchronized", help="Aggregation mode")
+    
     class trans:
         rank = F(int, default=0, help="Index of the transceiver")
         tx_port = F(int, default=5555, help="Port for sending data")

@@ -1,3 +1,4 @@
+from pathlib import Path
 import sys, os
 sys.path.append(".")
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
@@ -25,10 +26,10 @@ from dragon.utils.configure import Field as F
 seed_everything(42)
 
 
-def normalize(text):
-    text = text.replace("_", "")
-    text = text.replace(".", "")
-    text = text.strip()
+def normalize(text: str, question: str):
+    text = text.lower()
+    text = text.split("\n")[0]
+    text = text.split("<")[0]
     return text
 
 class QAConfig(DragonConfig):
@@ -50,9 +51,9 @@ class QAEvaluator:
             "save_metric_score": True,
             "save_intermediate_data": True,
             "metrics": ["f1", "EM"],
-            "save_dir": ".",
+            "save_dir": "outputs/tmp/",
         }
-
+        Path(self.flashrag_config["save_dir"]).mkdir(parents=True, exist_ok=True)
         self.dataset = get_dataset(self.flashrag_config)
         self.dataset = self.dataset[self.flashrag_config["split"][0]]
         self.evaluator = FlashragEvaluator(self.flashrag_config)
@@ -63,9 +64,9 @@ class QAEvaluator:
             time.sleep(0.1)
         for item in tqdm(self.dataset):
             query = item.question
-            response = self.device.query(query, self.prompt_template, self.max_new_tokens)
-            response = normalize(response)
-            pred_answer_list.append(response)
+            output_txt = self.device.query(query, self.prompt_template, self.max_new_tokens)
+            output_txt = normalize(output_txt, question=query)
+            pred_answer_list.append(output_txt)
         
         self.dataset.update_output("pred", pred_answer_list)
         evaluation_results = self.evaluator.evaluate(self.dataset)
@@ -86,9 +87,11 @@ if __name__ == "__main__":
     
     args = argparse.ArgumentParser()
     args.add_argument('--rank', type=int, default=0, help='0 for cloud, 1 for device')
+    args.add_argument('--method', type=str, default='synchronized', help='speculative or synchronized')
     args = args.parse_args()
     
     config.trans.rank = args.rank
+    config.aggregator.mode = args.method
     if args.rank == 0:
         config.trans.tx_port, config.trans.rx_port = config.trans.rx_port, config.trans.tx_port
         cloud = Dragon(config)

@@ -4,16 +4,16 @@ import time
 from dragon.utils.stable import seed_everything
 from dragon.config import DragonConfig
 from dragon.dragon import Dragon
-from dragon import generator
-from dragon import transceiver
-from dragon import decoder
-from dragon import dragon
-from dragon import aggregator
-generator.logging_level = "DEBUG"
-transceiver.logging_level = "DEBUG"
-decoder.logging_level = "DEBUG"
-dragon.logging_level = "DEBUG"
-aggregator.logging_level = "DEBUG"
+# from dragon import generator
+# from dragon import transceiver
+# from dragon import decoder
+# from dragon import dragon
+# from dragon import aggregator
+# generator.logging_level = "DEBUG"
+# transceiver.logging_level = "DEBUG"
+# decoder.logging_level = "DEBUG"
+# dragon.logging_level = "DEBUG"
+# aggregator.logging_level = "DEBUG"
 seed_everything(42)
 
 if __name__ == "__main__":
@@ -27,6 +27,7 @@ if __name__ == "__main__":
     config.retriever.n_docs = 4
     config.retriever.s_aggregate = 4
     config.sampler.do_sample = False
+    config.aggregator.mode = "speculative"
 
     config.trans.rank = 1
     config.trans.tx_port = 6000
@@ -38,7 +39,7 @@ if __name__ == "__main__":
         "who came up with the theory of relativity",
         "in greek mythology who was the goddess of spring growth",
     ]
-    max_new_tokens = 10
+    max_new_tokens = 15
     template = "context: {context} given the context, answer the question: {query}? " 
     for query in queries:
         response = device.query(query, template, max_new_tokens)

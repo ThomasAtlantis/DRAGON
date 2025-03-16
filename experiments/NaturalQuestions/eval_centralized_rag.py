@@ -42,7 +42,7 @@ class QAEvaluator:
         self.flashrag_config = {
             "dataset_path": "datasets/nq",
             "split": ["dev"],
-            "test_sample_num": None,
+            "test_sample_num": 100,
             "random_sample": False,
             "dataset_name": "nq",
             "save_metric_score": True,
@@ -50,6 +50,7 @@ class QAEvaluator:
             "metrics": ["f1", "EM"],
             "save_dir": f"outputs/CRAG-{config.evaluator.method}",
         }
+        self.flashrag_config["save_dir"] = "outputs/tmp/"
         Path(self.flashrag_config["save_dir"]).mkdir(parents=True, exist_ok=True)
         # split_path = Path(self.flashrag_config["dataset_path"]) / f"{self.flashrag_config['split'][0]}.jsonl"
         # self.dataset = Dataset(

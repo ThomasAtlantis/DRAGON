@@ -3,16 +3,16 @@ os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 from dragon.utils.stable import seed_everything
 from dragon.config import DragonConfig
 from dragon.dragon import Dragon
-from dragon import generator
-from dragon import transceiver
-from dragon import decoder
-from dragon import dragon
-from dragon import aggregator
-generator.logging_level = "DEBUG"
-transceiver.logging_level = "DEBUG"
-decoder.logging_level = "DEBUG"
-dragon.logging_level = "DEBUG"
-aggregator.logging_level = "DEBUG"
+# from dragon import generator
+# from dragon import transceiver
+# from dragon import decoder
+# from dragon import dragon
+# from dragon import aggregator
+# generator.logging_level = "DEBUG"
+# transceiver.logging_level = "DEBUG"
+# decoder.logging_level = "DEBUG"
+# dragon.logging_level = "DEBUG"
+# aggregator.logging_level = "DEBUG"
 
 seed_everything(42)
 
