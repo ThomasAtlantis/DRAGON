@@ -160,7 +160,7 @@ class Rag:
             if self.importance_sampling:
                 next_token = torch.multinomial(torch.exp(logprobs), num_samples=1).squeeze().cpu().item()
             else:
-                next_token = self.generator.sampler(torch.exp(logprobs).unsqueeze(0))[0]
+                next_token = self.generator.sampler(torch.exp(logprobs))
 
         self.logger.debug(f"Decoding complete in {time_meter.timer('Decoding').duration:.4f} seconds.")
         

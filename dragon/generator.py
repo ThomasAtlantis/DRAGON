@@ -13,6 +13,31 @@ import torch
 
 logging_level = "INFO"
 
+def _transform_greedy(probs: torch.Tensor) -> torch.Tensor:
+    if probs.dim() == 1:
+        probs = probs.unsqueeze_(0)
+    index = torch.argmax(probs, dim=-1).unsqueeze_(-1)
+    src = torch.ones_like(index, dtype=probs.dtype)
+    probs.zero_().scatter_(-1, index, src)
+    if probs.shape[0] == 1:
+        probs = probs.squeeze_(0)
+    return probs
+
+def _transform_top_k(probs: torch.Tensor, top_k: torch.Tensor) -> torch.Tensor:
+    values, indices = torch.topk(probs, top_k, dim=-1)
+    probs = torch.zeros_like(probs).scatter_(-1, indices, values)
+    return probs
+
+def _transform_top_p(probs: torch.Tensor, top_p: torch.Tensor) -> torch.Tensor:
+    sorted_probs, sorted_indices = torch.sort(probs, descending=True, dim=-1)
+    cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+    remove_sorted_indices_mask = cumulative_probs > top_p
+    remove_sorted_indices_mask[:, 0] = False  # at least one token should be kept
+    i_indices, j_indices = torch.where(remove_sorted_indices_mask)
+    vocab_indices = sorted_indices[i_indices, j_indices]
+    probs[i_indices, vocab_indices] = 0
+    return probs
+
 class Sampler:
     def __init__(self, config: DragonConfig.sampler):
         self.logger = Logger.build(__class__.__name__, level=logging_level)
@@ -23,20 +48,13 @@ class Sampler:
 
     def transform(self, probs: torch.Tensor) -> torch.Tensor:
         if self.greedy:
-            max_index = torch.argmax(probs, dim=-1)
-            return torch.nn.functional.one_hot(max_index, num_classes=probs.shape[-1]).float()
+            return _transform_greedy(probs)
         if self.top_k > 0:
-            values, indices = torch.topk(probs, self.top_k, dim=-1)
-            probs = torch.zeros_like(probs).scatter_(-1, indices, values)
+            probs = _transform_top_k(probs, torch.as_tensor(self.top_k, device=probs.device))
         if self.top_p < 1.0:
-            sorted_probs, sorted_indices = torch.sort(probs, descending=True, dim=-1)
-            cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
-            remove_sorted_indices_mask = cumulative_probs > self.top_p
-            remove_sorted_indices_mask[:, 0] = False  # at least one token should be kept
-            i_indices, j_indices = torch.where(remove_sorted_indices_mask)
-            vocab_indices = sorted_indices[i_indices, j_indices]
-            probs[i_indices, vocab_indices] = 0
+            probs = _transform_top_p(probs, torch.as_tensor(self.top_p, device=probs.device))
         return probs
+    
     def __call__(self, probs: torch.Tensor) -> np.ndarray:
         """
         @param probs: (s_sequence, s_vocab) tensor

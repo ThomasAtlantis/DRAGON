@@ -2,7 +2,6 @@
 import math
 from queue import Queue
 import threading
-from typing import List
 
 import torch
 
@@ -66,11 +65,11 @@ class Aggregator(threading.Thread):
         device = draft_loc.logprobs.device
         draft_rem.logprobs = draft_rem.logprobs.to(device)
         scores = torch.as_tensor([draft_loc.weight, draft_rem.weight], dtype=torch.float32, device=device)
-        scores = scores - torch.logsumexp(scores, dim=0)
+        scores = torch.log_softmax(scores, dim=0)
         logprobs = torch.stack([draft_loc.logprobs, draft_rem.logprobs], dim=1)  # (s_vocab, 2)
         logprobs = logprobs + scores                             # (s_vocab, 2) + (2,)
         logprobs = torch.logsumexp(logprobs, dim=1)              # (s_vocab,)
-        next_token = self.sampler(torch.exp(logprobs).unsqueeze(0))[0]
+        next_token = self.sampler(torch.exp(logprobs))
         
         real_weight_l = math.exp(draft_loc.weight) / (math.exp(draft_loc.weight) + math.exp(draft_rem.weight))
         real_weight_r = 1 - real_weight_l
@@ -90,7 +89,7 @@ class Aggregator(threading.Thread):
         device = draft_loc.logprobs.device
         draft_rem.logprobs = draft_rem.logprobs.to(device)
         scores = torch.as_tensor([draft_loc.weight, draft_rem.weight], dtype=torch.float32, device=device)
-        scores = scores - torch.logsumexp(scores, dim=0)
+        scores = torch.log_softmax(scores, dim=0)
         logprobs = torch.stack([draft_loc.logprobs, draft_rem.logprobs], dim=1)  # (s_vocab, 2)
         logprobs = logprobs + scores                             # (s_vocab, 2) + (2,)
         logprobs = torch.logsumexp(logprobs, dim=1)              # (s_vocab,)
@@ -107,11 +106,6 @@ class Aggregator(threading.Thread):
         next_token_rem = self._speculative_sampling(draft_rem.token, probs_rem, probs_agg, residual_probs_rem)
         next_token = next_token_loc if torch.rand(1) < 0.5 else next_token_rem
         
-        # real_weight_l = math.exp(draft_loc.weight) / (math.exp(draft_loc.weight) + math.exp(draft_rem.weight))
-        # real_weight_r = 1 - real_weight_l
-        # self.logger.debug(
-        #     f"Local(draft={draft_loc.token}, weight={real_weight_l:>.2f}), Remote(draft={draft_rem.token}, weight={real_weight_r:>.2f}) => Target({next_token})"
-        # )
         accept_loc = next_token == draft_loc.token
         accept_rem = next_token == draft_rem.token
         return next_token, accept_loc, accept_rem
