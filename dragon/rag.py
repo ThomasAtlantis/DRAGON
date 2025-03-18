@@ -23,7 +23,9 @@ class Rag:
         self.aggregate_size: int = config.retriever.s_aggregate
         self.do_retrieve = config.retriever.n_docs > 0
         self.do_rerank = config.reranker.do_rerank
-        self.importance_sampling = config.aggregator.mode == "speculative"
+        self.importance_sampling = (
+            config.aggregator.mode == "speculative" and self.rank_idx == 1
+        )
         self.input_queue = Queue(0)
         self.output_queue = Queue(0)
         self.generator = PreemptableGenerator(
