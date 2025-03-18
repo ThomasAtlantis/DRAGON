@@ -2,15 +2,19 @@
 import math
 from queue import Queue
 import threading
+from typing import List
 
 import torch
 
 from dragon.generator import Sampler
 from dragon.queues import DraftItem, DraftQueue
+from dragon.utils.meter import TimeMeter, Statistics
 from dragon.utils.mlogging import Logger
 
 
 logging_level = "INFO"
+time_meter = TimeMeter()
+stats = Statistics()
 
 
 class Aggregator(threading.Thread):
@@ -47,10 +51,13 @@ class Aggregator(threading.Thread):
     
     def run(self):
         self.target_tokens.queue.clear()
+        stats.new_record()
         while self.step < self.n_steps:
             draft_loc = self._get_draft_item(self.draft_queue_loc)
             draft_rem = self._get_draft_item(self.draft_queue_rem)
-            next_token, accept_loc, accept_rem = self.aggregate(draft_loc, draft_rem)
+            with time_meter.timer("AggregateLatency"):
+                next_token, accept_loc, accept_rem = self.aggregate(draft_loc, draft_rem)
+            stats.update(time_meter.timer("AggregateLatency"))
             self.target_tokens.put((next_token, accept_loc, accept_rem))
             self.step += 1
         self.logger.info("Aggregation complete.")

@@ -151,7 +151,7 @@ class PreemptableGenerator(threading.Thread, Generator):
                     )
                 )
             except Preempted as e:
-                self.logger.warning(e)
+                # self.logger.warning(e)
                 self.preempt_event.clear()
                 self.input_queue.queue.clear()
                 self.output_queue.put(None)

@@ -28,6 +28,7 @@ if __name__ == "__main__":
     config.retriever.s_aggregate = 4
     config.sampler.do_sample = False
     config.aggregator.mode = "speculative"
+    # config.aggregator.mode = "synchronized"
 
     config.trans.rank = 1
     config.trans.tx_port = 6000

@@ -1,5 +1,9 @@
+import json
 from queue import Queue
 import threading
+from typing import List
+
+from pathlib import Path
 from .rag import Rag
 from .transceiver import Message
 from .config import DragonConfig
@@ -9,10 +13,11 @@ from .queues import DraftQueue, DraftItem
 from .transceiver import Transceiver
 from .utils.stable import terminate_thread
 from .utils.mlogging import Logger
+from .utils.meter import Statistics, TimeMeter
 
 
 logging_level = "INFO"
-
+time_meter = TimeMeter()
 
 class Dragon:
 
@@ -36,12 +41,18 @@ class Dragon:
         self.is_client = config.trans.rank != 0
         self.aggregaton_mode = config.aggregator.mode
         self.transceiver.send(Message.READY_FOR_GENERATION, None)
+
+        self.stats = Statistics()
+        self.stats_output_dir = Path(f"outputs/stats/{config.aggregator.mode}/")
+        self.platform = f"{'device' if self.is_client else 'cloud'}"
     
     def shutdown(self):
         self.transceiver.send(Message.SHUTDOWN, None)
         self._shutdown()
 
     def _shutdown(self):
+        from .aggregator import stats as aggregator_stats
+        (self.stats | aggregator_stats).dump(self.stats_output_dir / f"{self.platform}.json")
         self.logger.info("Shutting down.")
         terminate_thread(self.aggregator)
         terminate_thread(self.decoder)
@@ -78,7 +89,7 @@ class Dragon:
         self.logger.debug("Cleaned up.")
 
     def _start_up(self, query, prompt_template, max_new_tokens):
-        # Local decoding and aggregating
+        self.stats.new_record()
         self.recompute_checker = threading.Thread(
             target=self.check_recompute, args=(max_new_tokens,))
         self.recompute_checker.start()
@@ -104,7 +115,11 @@ class Dragon:
     def check_recompute(self, n_steps: int):
         step = 0
         while step < n_steps:
-            target_token, accept_loc, accept_rem = self.target_tokens.get()
+            with time_meter.timer("LatencyPerToken"):
+                target_token, accept_loc, accept_rem = self.target_tokens.get()
+            self.stats.update(time_meter.timer('LatencyPerToken'))
+            self.stats.update(name='AcceptanceLoc', stat=accept_loc)
+            self.stats.update(name='AcceptanceRem', stat=accept_rem)
             if self.is_client:
                 self._send_target_token(target_token, accept_loc, accept_rem)
             self.output_tokens.put(target_token)
