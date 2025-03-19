@@ -61,6 +61,8 @@ class Decoder(threading.Thread):
         return output
     
     def _synchronize_output_to_remote(self, output: CausalOutput):
+        if self.step > self.n_steps:
+            return
         self.draft_token_handler(DraftItem(
             token=output.next_token, logprobs=output.logprobs, 
             weight=output.weight, step=self.step
@@ -68,7 +70,8 @@ class Decoder(threading.Thread):
     
     def decoding(self, output: CausalOutput):
         while self.output_tokens.qsize() < self.n_steps:
-            self.logger.debug(f"step {self.step}: n_output_tokens={self.output_tokens.qsize()}")
+            if self.step < self.n_steps:
+                self.logger.debug(f"step {self.step}: n_output_tokens={self.output_tokens.qsize()}")
             temp_output, temp_attention_mask = self.rag.generate(
                 output.next_token, self.scores, self.attention_mask, past_key_values=output.past_key_values)
             if not temp_output:

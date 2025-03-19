@@ -1,6 +1,6 @@
 import os
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
-import time
+import time, sys
 from dragon.utils.stable import seed_everything
 from dragon.config import DragonConfig
 from dragon.dragon import Dragon
@@ -32,13 +32,22 @@ if __name__ == "__main__":
 
     config.trans.rank = 1
     config.trans.tx_port = 6000
-    config.trans.rx_port = 5000
+    config.trans.tx_host = "192.168.1.126"
+
+    config.trans.rx_port = 6001
+    config.trans.rx_host = "0.0.0.0"
+
+    if sys.platform.lower().startswith("linux"):
+        config.device = "cuda:0"
+    else:  # `darwin` for MacOS
+        config.device = "cpu"
+
     device = Dragon(config)
     while not device.ready_for_generation:
         time.sleep(0.1)
     queries = [
         "who came up with the theory of relativity",
-        "in greek mythology who was the goddess of spring growth",
+        # "in greek mythology who was the goddess of spring growth",
     ]
     max_new_tokens = 15
     template = "context: {context} given the context, answer the question: {query}? " 

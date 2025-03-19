@@ -151,7 +151,7 @@ class CustomRetriever(BaseRetriever):
 
 class DPRRetriever(BaseRetriever):
 
-    def __init__(self, config):
+    def __init__(self, config: DragonConfig):
         super().__init__(config)
         self.n_docs = config.retriever.n_docs
     
@@ -183,12 +183,12 @@ class DPRRetriever(BaseRetriever):
     
 class DPRRetrieverClient(BaseRetriever):
 
-    def __init__(self, config):
+    def __init__(self, config: DragonConfig):
         super().__init__(config)
         self.n_docs = config.retriever.n_docs
         self.protocol = struct.Struct("I")
         self.header_size = struct.calcsize("I")
-        self.address = ("localhost", 8765)
+        self.address = (config.retriever.host, config.retriever.port)
     
     def prepare_retrieval(self, config: DragonConfig):
         pass

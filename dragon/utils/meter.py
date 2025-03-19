@@ -1,7 +1,8 @@
 import json
+from pathlib import Path
 import time
 from contextlib import AbstractContextManager
-from typing import List
+from typing import List, Union
 
 
 class TimeMeter:
@@ -52,7 +53,8 @@ class Statistics:
             new_stats.records.append(record1 | record2)
         return new_stats
 
-    def dump(self, file_path):
+    def dump(self, file_path: Union[str, Path]):
+        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
         with open(file_path, "w") as f:
             json.dump(self.records, f)
     

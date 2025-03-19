@@ -17,6 +17,8 @@ class DragonConfig(Configure):
         passages            = F(str,  required=True, help="Passage file with suffix in ['.tsv', '.jsonl'] or"
                                                          "Hugging Face RepoID and DatasetID, split with comma")
         passages_embeddings = F(str,  default="data/embeddings/*.pkl", help="Glob path to encoded passages")
+        host                = F(str,  default="192.168.1.126", help="Host address for the retriever")
+        port                = F(int,  default=8765, help="Port number for the retriever")
 
     class indexer:
         s_embedding         = F(int,  default=768,   help="The embedding dimension for indexing")
@@ -52,7 +54,9 @@ class DragonConfig(Configure):
     
     class trans:
         rank = F(int, default=0, help="Index of the transceiver")
+        tx_host = F(str, default="192.168.1.115", help="Remote host ip address")
         tx_port = F(int, default=5555, help="Port for sending data")
+        rx_host = F(str, default="0.0.0.0", help="local host ip address")
         rx_port = F(int, default=5556, help="Port for receiving data")
 
     class cache:
