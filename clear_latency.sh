@@ -1,0 +1,1 @@
+sudo tc qdisc delete dev enp0s31f6 root netem
