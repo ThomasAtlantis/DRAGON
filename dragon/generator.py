@@ -85,6 +85,8 @@ class Generator:
             model_name, add_bos_token=False, add_eos_token=False)  # removing bos/eos tokens is crucial
         self.tokenizer.padding_side = "left"
         self.model.to(self.device)
+        from .queues import DraftItem
+        DraftItem._vocab_size = self.model.config.vocab_size
         # The token <|endoftext|> serves as a content separator between distinct 'texts' 
         # within the training data for GPT-2 (and likely GPT-3 as well). By using this token, 
         # we enforce a shift in context both before and after <|endoftext|>.

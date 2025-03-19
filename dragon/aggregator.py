@@ -83,7 +83,8 @@ class Aggregator(threading.Thread):
             or torch.rand(1).to(draft_probs.device) < target_probs[draft_token] / draft_probs[draft_token]:
             return draft_token
         else:
-            return torch.multinomial(residual_probs, 1).cpu().item()
+            token = torch.multinomial(residual_probs, 1).cpu().item()
+            return token
 
     def aggregate_speculative(self, draft_loc: DraftItem, draft_rem: DraftItem):
         device = draft_loc.logprobs.device

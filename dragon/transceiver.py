@@ -1,7 +1,6 @@
 import queue
 import struct
 import pickle
-import json
 import time
 import threading
 import socket
@@ -27,17 +26,19 @@ class Message:
 
     @staticmethod
     def unpack(data: bytes) -> object:
-        # return pickle.loads(data)
-        return json.loads(data.decode())
+        return pickle.loads(data)
     
     @staticmethod
     def pack(mtype: int, mbody: object) -> Tuple[bytes, int]:
         if not 0 <= mtype <= 255:
             raise ValueError("mtype should be in range 0-255")
-        # mbody = pickle.dumps(mbody)
-        mbody = json.dumps(mbody).encode()
+        mbody = pickle.dumps(mbody)
         data = struct.pack(Message.header, mtype, len(mbody)) + mbody
         return data, len(mbody)
+    
+    @staticmethod
+    def empty_message():
+        return Message.EMPTY, pickle.dumps(None)
 
 mtype2str = {getattr(Message, attr): attr for attr in dir(Message) if not attr.startswith("_")}
 
@@ -60,36 +61,6 @@ class ReceiveListener(threading.Thread):
         if self.conn:
             self.conn.close()
             self.conn = None
-
-
-    # def run(self):
-    #     self.conn, addr = self.socket.accept()
-    #     self.logger.info(f"Connection accepted from {addr}")
-    #     while not self.stop_event.is_set():
-    #         header = b''
-    #         while len(header) < self.header_size:
-    #             chunk = self.conn.recv(self.header_size - len(header))
-    #             if not chunk:
-    #                 self.logger.warning("Connection closed prematurely.")
-    #                 if self.conn: self.conn.close()
-    #                 return
-    #             header += chunk
-    #         mtype, body_len = struct.unpack(Message.header, header)
-    #         mbody = b''
-    #         while len(mbody) < body_len:
-    #             chunk = self.conn.recv(body_len - len(mbody))
-    #             if not chunk:
-    #                 self.logger.warning("Incomplete message body received.")
-    #                 if self.conn: self.conn.close()
-    #                 return
-    #             mbody += chunk
-    #         self.queue.put((mtype, mbody))
-    #         if mtype in [Message.DRAFT_TOKEN, Message.TARGET_TOKEN]:
-    #             self.logger.debug(f"Received Message(mtype={mtype2str[mtype]}, len={body_len}, token={json.loads(mbody.decode())[0]})")
-    #         else:
-    #             self.logger.debug(f"Received Message(mtype={mtype2str[mtype]}, len={body_len})")
-    #     self.logger.debug("Connection closed.")
-    #     if self.conn: self.conn.close()
     
     def run(self):
         self.conn, addr = self.socket.accept()
@@ -103,7 +74,7 @@ class ReceiveListener(threading.Thread):
                 break
             self.queue.put((mtype, mbody))
             if mtype in [Message.DRAFT_TOKEN, Message.TARGET_TOKEN]:
-                self.logger.debug(f"Received Message(mtype={mtype2str[mtype]}, len={body_len}, token={json.loads(mbody.decode())[0]})")
+                self.logger.debug(f"Received Message(mtype={mtype2str[mtype]}, len={body_len}, token={pickle.loads(mbody)[0]})")
             else:
                 self.logger.debug(f"Received Message(mtype={mtype2str[mtype]}, len={body_len})")
         self.logger.debug("Connection closed.")
@@ -126,7 +97,7 @@ class ReceiveHandler(threading.Thread):
 
     def close(self):
         self.stop_event.set()
-        self.queue.put((Message.EMPTY, json.dumps(None).encode()))
+        self.queue.put(Message.empty_message())
     
     def run(self):
         while not self.stop_event.is_set():
@@ -211,7 +182,7 @@ class Transceiver:
         self.rx_socket.close()
         self.tx_socket.close()
         self.logger.info("Socket closed.")
-        self.send_queue.put((Message.EMPTY, json.dumps(None).encode()))
+        self.send_queue.put(Message.empty_message())
         self.send_thread.join()
         terminate_thread(self.receive_listener)
         terminate_thread(self.receive_handler)
