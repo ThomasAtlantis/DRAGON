@@ -29,6 +29,6 @@ if __name__ == "__main__":
     config.sampler.do_sample = False
     
     config.trans.rank = 0
-    config.trans.tx_port = 5000
+    config.trans.tx_port = 6001
     config.trans.rx_port = 6000
     cloud = Dragon(config)

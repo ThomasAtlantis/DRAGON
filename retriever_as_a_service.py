@@ -8,8 +8,8 @@ from dragon.utils.mlogging import Logger
 class Config:
     class retriever:
         n_docs = 4
-
-HOST, PORT = "localhost", 8765
+        host = "0.0.0.0"
+        port = 8765
 
 if __name__ == "__main__":
     config = Config()
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     logger.info("Retriever is ready!")
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind((HOST, PORT))
+    server.bind((config.retriever.host, config.retriever.port))
     server.listen(1)
     protocol = struct.Struct("I")
     header_size = struct.calcsize("I")
