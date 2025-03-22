@@ -1,23 +1,13 @@
-"""
-HF_ENDPOINT=https://hf-mirror.com \
-python -u run.py \
-    --retriever.passages "Salesforce/wikitext,wikitext-2-raw-v1" \
-    --retriever.passages_embeddings "data/wikitext2/*.pkl" \
-    --retriever.s_context 128 \
-    --retriever.n_docs 2 \
-    --retriever.s_aggregate 2 \
-    --generator.model "facebook/opt-1.3b"  \
-    --generator.s_sequence 896 \
-    --evaluator.output_dir "outputs/" \
-    --evaluator.dataset "Salesforce/wikitext,wikitext-2-raw-v1" \
-    --evaluator.s_prefix 128 \
-    --cache.load_index
-"""
-
+import sys, os
+sys.path.append(".")
+os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+from dragon.utils.stable import seed_everything
+seed_everything(42)
+import math
 from tqdm import tqdm
 from dragon.config import DragonConfig
 from dragon.utils.configure import Field as F
-from dragon.baselines.rag import RagForGeneration
+from dragon.baselines.centralized_rag import RagForGeneration
 from dragon.utils.data_process.data_utils import ContextualLMSampleLoader
 from experiments.evaluator import Evaluator
 from experiments.metrics import CrossEntropy
@@ -45,7 +35,7 @@ class LanguageModelingEvaluator(Evaluator):
         )["text"]
         self.tokenizer = self.rag.generator.tokenizer
         self.metric = CrossEntropy(device=config.device)
-        self.template = "{doc_text}{query}{input_text}"
+        self.template = "{context}{query}{input_text}"
     
     def data_loader(self):
         for i in tqdm(range(0, len(self.data), self.config.s_block)):
@@ -58,17 +48,36 @@ class LanguageModelingEvaluator(Evaluator):
             yield from tqdm(loader(), total=total)
 
     def evaluate(self):
+        """
+        HF_ENDPOINT=https://hf-mirror.com \
+        python -u run.py \
+            --retriever.passages "Salesforce/wikitext,wikitext-2-raw-v1" \
+            --retriever.passages_embeddings "data/wikitext2/*.pkl" \
+            --retriever.s_context 128 \
+            --retriever.n_docs 2 \
+            --retriever.s_aggregate 2 \
+            --generator.model "facebook/opt-1.3b"  \
+            --generator.s_sequence 1024 \
+            --evaluator.output_dir "outputs/" \
+            --evaluator.dataset "Salesforce/wikitext,wikitext-2-raw-v1" \
+            --evaluator.s_prefix 128 \
+            --cache.load_index
+        """
         self.metric.reset()
         for query_ids, input_ids, label_ids in self.data_loader():
+            if input_ids[0] is None or len(query_ids) > 256: continue
             logprobs = self.rag(query_ids, input_ids, template=self.template)
             self.metric.update(logprobs=logprobs, labels=label_ids)
         result = float(self.metric.compute())
         self.logger.info(f"{self.metric.__class__.__name__}: {result:.4f}")
-        self.save_output({"cross_entropy": result})
+        self.save_output({
+            "cross_entropy": result,
+            "perplexity": math.exp(result)
+        })
         if retriever := self.rag.retriever: retriever.query2docs.flush()
 
     def compute_doc_len(self):
-        from dragon.baselines.rag import group_docs
+        from dragon.baselines.centralized_rag import group_docs
         """
         HF_ENDPOINT=https://hf-mirror.com \
         python -u run.py \
@@ -102,3 +111,9 @@ class LanguageModelingEvaluator(Evaluator):
                 "avg_doc_len": avg_doc_len, "doc_lens": doc_lens
             })
         self.save_output(doc_lens_list)
+
+if __name__ == "__main__":
+    config = LanguageModelingConfig()
+    config.parse_sys_args()
+    evaluator = LanguageModelingEvaluator(config)
+    evaluator.evaluate()

@@ -5,7 +5,6 @@ from tqdm import tqdm
 
 from ..config import DragonConfig
 from ..generator import Generator
-from ..retriever import DPRRetrieverClient as Retriever
 from ..utils.mlogging import Logger
 from ..utils.meter import TimeMeter
 
@@ -40,6 +39,12 @@ class RagForGeneration:
         self.aggregate_size: int = config.retriever.s_aggregate
         
         if self.do_retrieval:
+            if "wikitext" in config.retriever.passages:
+                from ..retriever import CustomRetriever as Retriever
+            elif config.retriever.passages == "wikipedia[local]":
+                from ..retriever import DPRRetriever as Retriever
+            elif config.retriever.passages == "wikipedia[remote]":
+                from ..retriever import DPRRetrieverClient as Retriever
             self.retriever = Retriever(config)
             self.retriever.prepare_retrieval(config)
 
@@ -51,7 +56,16 @@ class RagForGeneration:
         query = self.generator.tokenizer.decode(query_ids)
         input_text = self.generator.tokenizer.decode(input_ids)
         with time_meter.timer("Retrieval"):
-            docs, scores = self.retriever.retrieve_passages([query])[0]
+            if self.config.retriever.downsample_type != 0:
+                self.retriever.n_docs = self.config.retriever.n_docs * 2
+                passages, scores = self.retriever.retrieve_passages([query])[0]
+                if self.config.retriever.downsample_type == 1:
+                    docs, scores = passages[: self.config.retriever.n_docs], scores[: self.config.retriever.n_docs]
+                else:
+                    docs, scores = passages[-self.config.retriever.n_docs:], scores[-self.config.retriever.n_docs:]
+            else:
+                docs, scores = self.retriever.retrieve_passages([query])[0]
+            
         logger.debug(f"Retrieval complete in {time_meter.timer('Retrieval').duration:.4f} seconds.")
 
         with time_meter.timer("Tokenization"):
@@ -107,11 +121,15 @@ class RagForGeneration:
         probs = softmax(w)^T softmax(z) -> log(probs) = logsumexp(logsoftmax(w)+logsoftmax(z))
         """
         with time_meter.timer("Decoding"):
-            # output = self.generator(
-            #     input_ids=input_ids, 
-            #     attention_mask=attention_mask, 
-            #     past_key_values=past_key_values
-            # )
+            if input_ids.shape[0] == 1:  # context aggregation
+                output = self.generator(
+                    input_ids=input_ids, 
+                    attention_mask=attention_mask, 
+                    past_key_values=past_key_values
+                )
+                logprobs = torch.nn.functional.log_softmax(output.logits[:, -n_logits:], dim=-1).squeeze(dim=0)
+                next_token = self.generator.sampler(torch.exp(logprobs[-1]))
+                return next_token, logprobs, output.past_key_values
             half_size = input_ids.shape[0] // 2
             # past_key_values_1 = [[], []] if past_key_values is not None else None
             # past_key_values_2 = [[], []] if past_key_values is not None else None
@@ -141,13 +159,14 @@ class RagForGeneration:
             #     past_key_values[1].append(torch.vstack([output_1.past_key_values[layer_idx][1], output_2.past_key_values[layer_idx][1]]))
             past_key_values = (output_1.past_key_values, output_2.past_key_values)
             logits = torch.vstack([output_1.logits[:, -n_logits: ], output_2.logits[:, -n_logits: ]])
-            # print(logits.squeeze(-1).cpu().max(dim=-1))
+            del output_1.logits, output_2.logits
             logprobs = torch.nn.functional.log_softmax(     # (s_aggregate, s_sequence, s_vocab)
                 logits / self.generator.sampler.temperature, dim=-1)
+            del logits
             logprobs = logprobs.permute(1, 0, 2)            # (s_sequence, s_aggregate, s_vocab)
-            logprobs = logprobs + scores.unsqueeze(dim=-1)  # (s_sequence, s_aggregate, s_vocab) + (s_aggregate, 1)
+            logprobs.add_(scores.unsqueeze(dim=-1))  # (s_sequence, s_aggregate, s_vocab) + (s_aggregate, 1)
             logprobs = torch.logsumexp(logprobs, dim=1)
-            next_token = self.generator.sampler(torch.exp(logprobs[-1]).unsqueeze(0))[0]
+            next_token = self.generator.sampler(torch.exp(logprobs[-1]))
         logger.debug(f"Decoding complete in {time_meter.timer('Decoding').duration:.4f} seconds.")
         return next_token, logprobs, past_key_values
     

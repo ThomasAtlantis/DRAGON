@@ -16,9 +16,10 @@ class DragonConfig(Configure):
         s_context           = F(int,  default=256,   help="Maximum number of tokens in a context")
         passages            = F(str,  required=True, help="Passage file with suffix in ['.tsv', '.jsonl'] or"
                                                          "Hugging Face RepoID and DatasetID, split with comma")
+        downsample_type     = F(int,  default=0,     help="Downsample type, 0 for no downsample, 1 for first half of topk, 2 for second half of topk")
         passages_embeddings = F(str,  default="data/embeddings/*.pkl", help="Glob path to encoded passages")
         host                = F(str,  default="192.168.1.126", help="Host address for the retriever")
-        port                = F(int,  default=8765, help="Port number for the retriever")
+        port                = F(int,  default=8765,  help="Port number for the retriever")
 
     class indexer:
         s_embedding         = F(int,  default=768,   help="The embedding dimension for indexing")
@@ -36,6 +37,7 @@ class DragonConfig(Configure):
     class generator:
         model               = F(str,  required=True, help="Path to the model configuration file")
         s_sequence          = F(int,  default=896,   help="")
+        use_fp16            = F(bool, default=False,  help="Use fp16 for generation")
 
     class reranker:
         do_rerank           = F(bool, default=False, help="If enabled, rerank the documents")

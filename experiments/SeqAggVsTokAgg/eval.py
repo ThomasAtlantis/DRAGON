@@ -14,7 +14,7 @@ python -u run.py \
 
 from dragon.config import DragonConfig
 from dragon.utils.configure import Field as F
-from dragon.baselines.rag import RagSequenceForGeneration, RagTokenForGeneration
+from dragon.baselines.centralized_rag import RagSequenceForGeneration, RagTokenForGeneration
 from experiments.evaluator import Evaluator
 
 class SeqAggVsTokAggConfig(DragonConfig):

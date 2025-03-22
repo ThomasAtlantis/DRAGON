@@ -172,8 +172,8 @@ class Rag:
             past_key_values=output.past_key_values
         )
 
-    def generate(self, last_token: int, scores: torch.Tensor, attention_mask: torch.Tensor, past_key_values: List[torch.Tensor]):
+    def generate(self, last_token: int, scores: torch.Tensor, attention_mask: torch.Tensor, past_key_values: List[torch.Tensor], preemptable=True) -> Tuple[CausalOutput, torch.Tensor]:
         input_ids = torch.as_tensor([last_token], dtype=torch.long, device=self.device)
         input_ids = input_ids.repeat(self.aggregate_size, 1)
         attention_mask = torch.cat([attention_mask, torch.ones_like(input_ids)], dim=1)
-        return self._generate(input_ids, attention_mask, scores, past_key_values=past_key_values, preemptable=True), attention_mask
+        return self._generate(input_ids, attention_mask, scores, past_key_values=past_key_values, preemptable=preemptable), attention_mask

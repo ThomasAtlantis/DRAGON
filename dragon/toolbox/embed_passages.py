@@ -1,7 +1,6 @@
 import pickle
-import json
 from pathlib import Path
-from dragon.retriever.retriever import Retriever
+from dragon.retriever import CustomRetriever as Retriever
 from dragon.utils.data_process import text_utils
 from dragon.utils.data_process import data_utils
 from dragon.utils.mlogging import Logger
@@ -54,7 +53,7 @@ def get_shard(passages):
 
 
 def main():
-    retriever = Retriever(config, logger)
+    retriever = Retriever(config)
     passages = get_shard(data_utils.load_passages(
         config.retriever.passages, config.retriever.s_passage, 
         cache_path=config.cache.directory))

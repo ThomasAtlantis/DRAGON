@@ -78,9 +78,15 @@ class Generator:
         self.device = torch.device(config.device)
         self.sampler = Sampler(config.sampler)
         
-        self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
-            model_name, device_map="cpu", torch_dtype=torch.float32
-        ).eval()
+        dtype = torch.bfloat16 if config.generator.use_fp16 else torch.float32
+        if "Qwen" in model_name:
+            self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
+                model_name, device_map="cpu", torch_dtype=dtype, attn_implementation='flash_attention_2'
+            ).eval()
+        else:
+            self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
+                model_name, device_map="cpu", torch_dtype=dtype
+            ).eval()
         self.tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
             model_name, add_bos_token=False, add_eos_token=False)  # removing bos/eos tokens is crucial
         self.tokenizer.padding_side = "left"

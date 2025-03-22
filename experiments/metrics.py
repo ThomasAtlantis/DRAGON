@@ -37,7 +37,7 @@ class CrossEntropy(Metric):
                 labels = torch.LongTensor(labels).to(self.device)
             labels = labels.unsqueeze(-1)
             cross_entropy = -torch.gather(logprobs, dim=1, index=labels).squeeze(-1)
-            cross_entropy = cross_entropy.cpu().numpy()
+            cross_entropy = cross_entropy.cpu().float().numpy()
             self.data.append(cross_entropy)
     
     def reset(self):
