@@ -11,7 +11,6 @@ from .aggregator import Aggregator
 from .decoder import Decoder
 from .queues import DraftQueue, DraftItem
 from .transceiver import Transceiver
-from .profiler import Profiler
 from .utils.stable import terminate_thread
 from .utils.mlogging import Logger
 from .utils.meter import Statistics, TimeMeter
@@ -81,13 +80,6 @@ class Dragon:
         thread.start()
         return thread
     
-    def _build_profiler(self, query, prompt_template, max_new_tokens):
-        thread = Profiler(
-            self.config, self.rag, query, prompt_template, max_new_tokens
-        )
-        thread.start()
-        return thread
-    
     def _clean_up(self):
         self.transceiver.receive_queue.queue.clear()
         self.rag.generator.input_queue.queue.clear()
@@ -110,10 +102,7 @@ class Dragon:
             self.recompute_checker.join()
             self._clean_up()
 
-    def query(self, query: str, prompt_template: str, max_new_tokens: int):
-        self.profiler = self._build_profiler(query, prompt_template, max_new_tokens)
-        self.profiler.join()
-        
+    def query(self, query: str, prompt_template: str, max_new_tokens: int):        
         # Inform remote decoding
         self._send_begin_generate(query, prompt_template, max_new_tokens)
         self._start_up(query, prompt_template, max_new_tokens)

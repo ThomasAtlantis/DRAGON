@@ -96,7 +96,8 @@ class Generator:
         # The token <|endoftext|> serves as a content separator between distinct 'texts' 
         # within the training data for GPT-2 (and likely GPT-3 as well). By using this token, 
         # we enforce a shift in context both before and after <|endoftext|>.
-        self.context_switching_id = self.tokenizer.convert_tokens_to_ids(["<|endoftext|>"])[0]
+        # self.context_switching_id = self.tokenizer.convert_tokens_to_ids(["<|endoftext|>"])[0]
+        self.context_switching_id = None
         self.max_seq_len = min(config.generator.s_sequence, self.model.config.max_position_embeddings)
     
     def __call__(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, **kwargs) -> CausalLMOutputWithPast:  # prefilling

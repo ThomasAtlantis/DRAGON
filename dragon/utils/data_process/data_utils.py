@@ -167,8 +167,8 @@ def tokens_to_contextual_lm_samples(
 
     yield DataSample(
         query=[], 
-        input=[bos_token]+token_list[: max_seq_len - 1], 
-        label=token_list[: max_seq_len]
+        input=token_list[: max_seq_len - 1], 
+        label=token_list[1: max_seq_len]
     )  # Initially, model the entire sequence given the bos_token
     for i in range(max_seq_len, len(token_list), pred_len):
         yield extract_context(i, i + pred_len)
