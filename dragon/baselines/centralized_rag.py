@@ -6,7 +6,7 @@ from tqdm import tqdm
 from ..config import DragonConfig
 from ..generator import Generator
 from ..utils.mlogging import Logger
-from ..utils.meter import TimeMeter
+from ..utils.meter import Statistics, TimeMeter
 
 
 logger = Logger.build(__name__, level="INFO")
@@ -180,6 +180,7 @@ class RagTokenForGeneration(RagForGeneration):
                 model_name=config.reranker.model,
                 max_length=512, device=config.device)
             self.rerank_momentum = config.reranker.momentum
+        self.stats = Statistics()
 
     def _rerank_documents(
             self, query_ids: List[int], 
@@ -215,6 +216,7 @@ class RagTokenForGeneration(RagForGeneration):
         Aggregate tokens from multiple generation processes at each step to obtain the next token. Repeat this
         autoregressive generation process for max_new_tokens times.
         """
+        self.stats.new_record()
         scores_list = []  # for debugging
         pbar = tqdm(total=max_new_tokens, desc="Generating", leave=False, initial=0)
         context_input_ids, attention_mask, scores, doc_texts = self._prepare_inputs_for_generation(query_ids, [], template)
@@ -229,16 +231,18 @@ class RagTokenForGeneration(RagForGeneration):
 
         for t in range(max_new_tokens - 1):  # Auto-regressive generation
             # Dynamic re-ranking every `self.config.reranker.period` steps
-            if self.do_rerank and (self.config.reranker.period == 0 or (t + 1) % self.config.reranker.period == 0):
-                scores = self._rerank_documents(query_ids, output_ids, doc_texts, scores)
-            scores_list.append(scores)
-            input_ids = torch.as_tensor([next_token], dtype=torch.long).to(self.device)
-            input_ids = input_ids.repeat(self.aggregate_size, 1)
-            attention_mask = torch.cat([attention_mask, torch.ones_like(input_ids)], dim=1)
-            next_token, logprobs_token_wise, past_key_values = self._generate(
-                input_ids, attention_mask, scores, n_logits=1, past_key_values=past_key_values)
-            logprobs.append(logprobs_token_wise)
-            output_ids.append(next_token)
+            with time_meter.timer("CRCG_LatencyPerToken"):
+                if self.do_rerank and (self.config.reranker.period == 0 or (t + 1) % self.config.reranker.period == 0):
+                    scores = self._rerank_documents(query_ids, output_ids, doc_texts, scores)
+                scores_list.append(scores)
+                input_ids = torch.as_tensor([next_token], dtype=torch.long).to(self.device)
+                input_ids = input_ids.repeat(self.aggregate_size, 1)
+                attention_mask = torch.cat([attention_mask, torch.ones_like(input_ids)], dim=1)
+                next_token, logprobs_token_wise, past_key_values = self._generate(
+                    input_ids, attention_mask, scores, n_logits=1, past_key_values=past_key_values)
+                logprobs.append(logprobs_token_wise)
+                output_ids.append(next_token)
+            self.stats.update(time_meter.timer('CRCG_LatencyPerToken'))
             pbar.update(1)
         pbar.close()
         logprobs = torch.vstack(logprobs)    # (max_new_tokens, s_vocab)

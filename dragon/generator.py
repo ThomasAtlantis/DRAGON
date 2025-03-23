@@ -93,7 +93,7 @@ class Generator:
             # self.tokenizer.encode = types.MethodType(
             #     lambda s, text: s(text).input_ids, self.tokenizer)
         else:
-            if "Qwen" in self.model_name:
+            if "Qwen" in self.model_name and self.device.type == "cuda":
                 self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
                     self.model_name, device_map="cpu", torch_dtype=dtype, attn_implementation='flash_attention_2'
                 ).eval()
@@ -116,10 +116,10 @@ class Generator:
     
     def __call__(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, **kwargs) -> CausalLMOutputWithPast:  # prefilling
         seed_everything(42)
-        if not self.model_name in ["BART"]:
-            kwargs.update(
-                pad_token_id=self.model.config.eos_token_id
-            )
+        # if not self.model_name in ["BART", "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"]:
+        #     kwargs.update(
+        #         pad_token_id=self.model.config.eos_token_id
+        #     )
         with torch.inference_mode():
             output = self.model(
                 input_ids=input_ids, 
@@ -131,10 +131,10 @@ class Generator:
         return output
     
     def generate(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, **kwargs) -> CausalLMOutputWithPast:  # generation
-        if not self.model_name in ["BART"]:
-            kwargs.update(
-                pad_token_id=self.model.config.eos_token_id
-            )
+        # if not self.model_name in ["BART", "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"]:
+        #     kwargs.update(
+        #         pad_token_id=self.model.config.eos_token_id
+        #     )
         with torch.inference_mode():
             output = self.model.generate(
                 input_ids=input_ids, 

@@ -22,6 +22,9 @@ class Message:
     TARGET_TOKEN = 5
     SHUTDOWN = 6
     EMPTY = 7
+    DRAT_SEQUENCE = 8
+    PREPARE_COMPLETE = 9
+    BEGIN_DECODE = 10
     header = ">B I"
 
     @staticmethod

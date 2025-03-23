@@ -4,6 +4,8 @@ import threading
 from typing import List
 
 from pathlib import Path
+
+from tqdm import tqdm
 from .rag import Rag
 from .transceiver import Message
 from .config import DragonConfig
@@ -25,6 +27,7 @@ class Dragon:
         self.logger = Logger.build(__class__.__name__, level=logging_level)
         self.ready_for_generation = False
         self.config = config
+        self.process_bar = None
         
         self.transceiver = Transceiver(config)
         self.transceiver.register_observers(self._collect_observers())
@@ -104,6 +107,7 @@ class Dragon:
 
     def query(self, query: str, prompt_template: str, max_new_tokens: int):        
         # Inform remote decoding
+        self.process_bar = tqdm(total=max_new_tokens, desc="Generating", leave=False)
         self._send_begin_generate(query, prompt_template, max_new_tokens)
         self._start_up(query, prompt_template, max_new_tokens)
 
@@ -111,6 +115,7 @@ class Dragon:
         output_ids = self.decoder.output_ids
         output_txt = self.rag.generator.tokenizer.decode(
             output_ids, skip_special_tokens=True)
+        self.process_bar.close()
         return output_txt
 
     def check_recompute(self, n_steps: int):
@@ -118,6 +123,7 @@ class Dragon:
         while step < n_steps:
             with time_meter.timer("LatencyPerToken"):
                 target_token, accept_loc, accept_rem = self.target_tokens.get()
+            self.process_bar.update(1)
             self.stats.update(time_meter.timer('LatencyPerToken'))
             self.stats.update(name='AcceptanceLoc', stat=accept_loc)
             self.stats.update(name='AcceptanceRem', stat=accept_rem)

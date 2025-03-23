@@ -1,0 +1,32 @@
+[
+    {
+        "query": "In the allegory of \"the apple doesn't fall far from the tree\", if the tree is on a hill, what does the hill represent?"
+    },
+    {
+        "query": "I would like to make an iPhone app where you can paste the URL for a setlist from setlist.fm and it will automatically create a Spotify playlist of the setlist for you"
+    },
+    {
+        "query": "This question is about hashing.\n(a) Briefly explain why hash tables are useful for storing many integers."
+    },
+    {
+        "query": "Combine the two given sentences into a single sentence using [English language rules for conjunctions]. How can you rewrite the two sentences to form a grammatically correct sentence?"
+    },
+    {
+        "query": "When writing a drama script, how do you ensure that the dialogue is engaging and effective in conveying the intended message?"
+    },
+    {
+        "query": "Illustrate the concept of strategic decision-making within the context of an auction, where individuals must decide how much to bid on an item without knowing the maximum bid of the others."
+    },
+    {
+        "query": "Dissect the reasoning behind the difference when you subtract the total number of fingers on both hands from the total number of days in two weeks."
+    },
+    {
+        "query": "What are the steps to migrate a monolithic web app to a micro service native mobile apps using open shift?"
+    },
+    {
+        "query": "How do I use a-primitives in my a-scene in a-frame to give the appearance that the whole scene is happeining inside a jail scene"
+    },
+    {
+        "query": "How do laws around intellectual property affect the music industry, and what are some notable legal cases involving copyright infringement?"
+    }
+]
