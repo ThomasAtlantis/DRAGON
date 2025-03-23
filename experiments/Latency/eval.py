@@ -72,13 +72,6 @@ if __name__ == "__main__":
     config.trans.tx_port = 6000
     config.trans.rx_port = 6001
     
-    # args = argparse.ArgumentParser()
-    # args.add_argument('--rank', type=int, default=0, help='0 for cloud, 1 for device')
-    # args.add_argument('--method', type=str, default='synchronized', help='speculative or synchronized')
-    # args = args.parse_args()
-    
-    # config.trans.rank = args.rank
-    # config.aggregator.mode = args.method
     if config.trans.rank == 0:
         config.trans.tx_host = "192.168.1.115"
         config.trans.tx_port, config.trans.rx_port = config.trans.rx_port, config.trans.tx_port
