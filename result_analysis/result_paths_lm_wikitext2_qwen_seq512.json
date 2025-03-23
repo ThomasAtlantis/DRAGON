@@ -1,0 +1,53 @@
+{
+    "n_docs=0": {
+        "W/O Retrieval": "outputs/LanguageModeling-20250322231834"
+    },
+    "n_docs=16": {
+        "DRAGON": "outputs/LanguageModeling-20250322231916",
+        "DRCG": "outputs/LanguageModeling-20250323001916",
+        "CRCG/Cloud": "outputs/LanguageModeling-20250323002019",
+        "CRCG/Device": "outputs/LanguageModeling-20250323002121"
+    },
+    "n_docs=2": {
+        "DRAGON": "outputs/LanguageModeling-20250322232703",
+        "DRCG": "outputs/LanguageModeling-20250322232847",
+        "CRCG/Cloud": "outputs/LanguageModeling-20250322232947",
+        "CRCG/Device": "outputs/LanguageModeling-20250322233042"
+    },
+    "n_docs=4": {
+        "DRAGON": "outputs/LanguageModeling-20250322233138",
+        "DRCG": "outputs/LanguageModeling-20250322233422",
+        "CRCG/Cloud": "outputs/LanguageModeling-20250322233522",
+        "CRCG/Device": "outputs/LanguageModeling-20250322233623"
+    },
+    "n_docs=6": {
+        "DRAGON": "outputs/LanguageModeling-20250322233733",
+        "DRCG": "outputs/LanguageModeling-20250322234108",
+        "CRCG/Cloud": "outputs/LanguageModeling-20250322234208",
+        "CRCG/Device": "outputs/LanguageModeling-20250322234308"
+    },
+    "n_docs=8": {
+        "DRAGON": "outputs/LanguageModeling-20250322234409",
+        "DRCG": "outputs/LanguageModeling-20250322234838",
+        "CRCG/Cloud": "outputs/LanguageModeling-20250322234941",
+        "CRCG/Device": "outputs/LanguageModeling-20250322235043"
+    },
+    "n_docs=10": {
+        "DRAGON": "outputs/LanguageModeling-20250322235145",
+        "DRCG": "outputs/LanguageModeling-20250322235653",
+        "CRCG/Cloud": "outputs/LanguageModeling-20250322235753",
+        "CRCG/Device": "outputs/LanguageModeling-20250322235854"
+    },
+    "n_docs=12": {
+        "DRAGON": "outputs/LanguageModeling-20250322235955",
+        "DRCG": "outputs/LanguageModeling-20250323000608",
+        "CRCG/Cloud": "outputs/LanguageModeling-20250323000712",
+        "CRCG/Device": "outputs/LanguageModeling-20250323000813"
+    },
+    "n_docs=14": {
+        "DRAGON": "outputs/LanguageModeling-20250323000915",
+        "DRCG": "outputs/LanguageModeling-20250323001608",
+        "CRCG/Cloud": "outputs/LanguageModeling-20250323001709",
+        "CRCG/Device": "outputs/LanguageModeling-20250323001812"
+    }
+}

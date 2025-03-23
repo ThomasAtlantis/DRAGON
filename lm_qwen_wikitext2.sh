@@ -16,8 +16,8 @@ DRAGON() {
         --retriever.passages "Salesforce/wikitext,wikitext-2-raw-v1" \
         --retriever.passages_embeddings "data/wikitext2/*.pkl" \
         --retriever.s_context 256 \
-        --generator.model "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"  \
-        --generator.s_sequence 640 \
+        --generator.model "Qwen/Qwen2.5-1.5B"  \
+        --generator.s_sequence 512 \
         --evaluator.s_prefix 64 \
         --evaluator.dataset "Salesforce/wikitext,wikitext-2-raw-v1" \
         --evaluator.output_dir "outputs/" \
@@ -35,8 +35,8 @@ NoRetrieval() {
         --retriever.passages "Salesforce/wikitext,wikitext-2-raw-v1" \
         --retriever.passages_embeddings "data/wikitext2/*.pkl" \
         --retriever.s_context 256 \
-        --generator.model "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"  \
-        --generator.s_sequence 640 \
+        --generator.model "Qwen/Qwen2.5-1.5B"  \
+        --generator.s_sequence 512 \
         --evaluator.s_prefix 64 \
         --evaluator.dataset "Salesforce/wikitext,wikitext-2-raw-v1" \
         --evaluator.output_dir "outputs/" \
@@ -55,8 +55,8 @@ DRCG() {
         --retriever.passages "Salesforce/wikitext,wikitext-2-raw-v1" \
         --retriever.passages_embeddings "data/wikitext2/*.pkl" \
         --retriever.s_context 256 \
-        --generator.model "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"  \
-        --generator.s_sequence 640 \
+        --generator.model "Qwen/Qwen2.5-1.5B"  \
+        --generator.s_sequence 512 \
         --evaluator.s_prefix 64 \
         --evaluator.dataset "Salesforce/wikitext,wikitext-2-raw-v1" \
         --evaluator.output_dir "outputs/" \
@@ -82,8 +82,8 @@ CRCG() {
         --retriever.passages "Salesforce/wikitext,wikitext-2-raw-v1" \
         --retriever.passages_embeddings "data/wikitext2/*.pkl" \
         --retriever.s_context 256 \
-        --generator.model "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"  \
-        --generator.s_sequence 640 \
+        --generator.model "Qwen/Qwen2.5-1.5B"  \
+        --generator.s_sequence 512 \
         --evaluator.s_prefix 64 \
         --evaluator.dataset "Salesforce/wikitext,wikitext-2-raw-v1" \
         --evaluator.output_dir "outputs/" \
@@ -101,7 +101,7 @@ CRCG() {
 #     --retriever.model "contriever" \
 #     --retriever.passages "Salesforce/wikitext,wikitext-2-raw-v1" \
 #     --output_dir "./data/wikitext2" \
-#     --retriever.bs_encode 640 \
+#     --retriever.bs_encode 512 \
 #     --retriever.s_passage 64 \
 #     --text.with_title
 
@@ -114,5 +114,9 @@ for n_docs in {2,4,6,8,10,12,14}; do
     CRCG $n_docs cloud
     CRCG $n_docs device
 done
+
+DRCG 16
+CRCG 16 cloud
+CRCG 16 device
 
 echo "All done!"

@@ -104,7 +104,7 @@ python -m dragon.toolbox.embed_passages \
     --text.with_title
 
 echo "Evaluating OPT-1.3B on WikiText103 ..."
-
+NoRetrieval
 DRAGON 16 start
 for n_docs in {2,4,6,8,10,12,14}; do
     DRAGON $n_docs following
@@ -112,5 +112,9 @@ for n_docs in {2,4,6,8,10,12,14}; do
     CRCG $n_docs cloud
     CRCG $n_docs device
 done
+
+DRCG 16
+CRCG 16 cloud
+CRCG 16 device
 
 echo "All done!"
