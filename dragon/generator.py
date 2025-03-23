@@ -74,21 +74,35 @@ class Generator:
 
     def __init__(self, config: DragonConfig):
         self.logger = Logger.build(__class__.__name__, level=logging_level)
-        model_name = config.generator.model
+        self.model_name = config.generator.model
         self.device = torch.device(config.device)
         self.sampler = Sampler(config.sampler)
         
         dtype = torch.bfloat16 if config.generator.use_fp16 else torch.float32
-        if "Qwen" in model_name:
-            self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
-                model_name, device_map="cpu", torch_dtype=dtype, attn_implementation='flash_attention_2'
-            ).eval()
+        if self.model_name == "BART":
+            from transformers import RagTokenForGeneration, RagTokenizer
+            self.model = RagTokenForGeneration.from_pretrained(
+                "/data/lsy/workspace/DragonLab/weights/rag-token-nq",
+                device_map="cpu", torch_dtype=torch.bfloat16
+            ).generator.eval()
+            self.tokenizer = RagTokenizer.from_pretrained(
+                "/data/lsy/workspace/DragonLab/weights/rag-token-nq").question_encoder
+            # self.tokenizer.encode_plus = self.tokenizer.__call__
+            # self.tokenizer.batch_encode_plus = self.tokenizer.__call__
+            # import types
+            # self.tokenizer.encode = types.MethodType(
+            #     lambda s, text: s(text).input_ids, self.tokenizer)
         else:
-            self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
-                model_name, device_map="cpu", torch_dtype=dtype
-            ).eval()
-        self.tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
-            model_name, add_bos_token=False, add_eos_token=False)  # removing bos/eos tokens is crucial
+            if "Qwen" in self.model_name:
+                self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
+                    self.model_name, device_map="cpu", torch_dtype=dtype, attn_implementation='flash_attention_2'
+                ).eval()
+            else:
+                self.model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
+                    self.model_name, device_map="cpu", torch_dtype=dtype
+                ).eval()
+            self.tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
+                self.model_name, add_bos_token=False, add_eos_token=False)  # removing bos/eos tokens is crucial
         self.tokenizer.padding_side = "left"
         self.model.to(self.device)
         from .queues import DraftItem
@@ -96,16 +110,20 @@ class Generator:
         # The token <|endoftext|> serves as a content separator between distinct 'texts' 
         # within the training data for GPT-2 (and likely GPT-3 as well). By using this token, 
         # we enforce a shift in context both before and after <|endoftext|>.
-        self.context_switching_id = self.tokenizer.convert_tokens_to_ids(["<|endoftext|>"])[0]
+        # self.context_switching_id = self.tokenizer.convert_tokens_to_ids(["<|endoftext|>"])[0]
+        self.context_switching_id = None
         self.max_seq_len = min(config.generator.s_sequence, self.model.config.max_position_embeddings)
     
     def __call__(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, **kwargs) -> CausalLMOutputWithPast:  # prefilling
         seed_everything(42)
+        if not self.model_name in ["BART"]:
+            kwargs.update(
+                pad_token_id=self.model.config.eos_token_id
+            )
         with torch.inference_mode():
             output = self.model(
                 input_ids=input_ids, 
                 attention_mask=attention_mask, 
-                pad_token_id=self.model.config.eos_token_id,
                 return_dict=True, 
                 use_cache=True, 
                 **kwargs
@@ -113,11 +131,14 @@ class Generator:
         return output
     
     def generate(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, **kwargs) -> CausalLMOutputWithPast:  # generation
+        if not self.model_name in ["BART"]:
+            kwargs.update(
+                pad_token_id=self.model.config.eos_token_id
+            )
         with torch.inference_mode():
             output = self.model.generate(
                 input_ids=input_ids, 
                 attention_mask=attention_mask,
-                pad_token_id=self.model.config.eos_token_id, 
                 return_dict_in_generate=True, 
                 use_cache=True, 
                 **kwargs
