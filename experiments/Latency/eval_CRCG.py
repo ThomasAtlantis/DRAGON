@@ -37,8 +37,7 @@ class LatencyEvaluator(Evaluator):
         self.dataset = get_prompt_dataset(config.evaluator.n_prompts)
 
     def evaluate(self):
-        for i, query in enumerate(tqdm(self.dataset)):
-            if i == 2: break
+        for query in tqdm(self.dataset):
             query_ids = self.tokenizer.encode(query)
             output_ids, _, passage0 = self.rag.generate(
                 query_ids, max_new_tokens=self.max_new_tokens, template=self.prompt_template)
@@ -54,9 +53,6 @@ if __name__ == "__main__":
     config.parse_sys_args()
     config.generator.s_sequence = 1024
     config.retriever.s_context = 256
-    config.retriever.n_docs = 1
-    config.retriever.s_aggregate = 1
-    config.retriever.downsample_type = 1
     config.sampler.do_sample = False
     
     evaluator = LatencyEvaluator(config)

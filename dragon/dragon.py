@@ -47,16 +47,12 @@ class Dragon:
         self.transceiver.send(Message.READY_FOR_GENERATION, None)
 
         self.stats = Statistics()
-        self.stats_output_dir = Path(f"outputs/stats/{config.aggregator.mode}/")
-        self.platform = f"{'device' if self.is_client else 'cloud'}"
     
     def shutdown(self):
         self.transceiver.send(Message.SHUTDOWN, None)
         self._shutdown()
 
     def _shutdown(self):
-        from .aggregator import stats as aggregator_stats
-        (self.stats | aggregator_stats).dump(self.stats_output_dir / f"{self.platform}.json")
         self.logger.info("Shutting down.")
         terminate_thread(self.aggregator)
         terminate_thread(self.decoder)
@@ -94,6 +90,7 @@ class Dragon:
 
     def _start_up(self, query, prompt_template, max_new_tokens):
         self.stats.new_record()
+        self.process_bar = tqdm(total=max_new_tokens, desc="Generating", leave=False)
         self.recompute_checker = threading.Thread(
             target=self.check_recompute, args=(max_new_tokens,))
         self.recompute_checker.start()
@@ -107,7 +104,6 @@ class Dragon:
 
     def query(self, query: str, prompt_template: str, max_new_tokens: int):        
         # Inform remote decoding
-        self.process_bar = tqdm(total=max_new_tokens, desc="Generating", leave=False)
         self._send_begin_generate(query, prompt_template, max_new_tokens)
         self._start_up(query, prompt_template, max_new_tokens)
 
@@ -124,9 +120,10 @@ class Dragon:
             with time_meter.timer("LatencyPerToken"):
                 target_token, accept_loc, accept_rem = self.target_tokens.get()
             self.process_bar.update(1)
-            self.stats.update(time_meter.timer('LatencyPerToken'))
-            self.stats.update(name='AcceptanceLoc', stat=accept_loc)
-            self.stats.update(name='AcceptanceRem', stat=accept_rem)
+            if step > 0:
+                self.stats.update(time_meter.timer('LatencyPerToken'))
+                self.stats.update(name='AcceptanceLoc', stat=accept_loc)
+                self.stats.update(name='AcceptanceRem', stat=accept_rem)
             if self.is_client:
                 self._send_target_token(target_token, accept_loc, accept_rem)
             self.output_tokens.put(target_token)

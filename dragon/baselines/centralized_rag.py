@@ -231,7 +231,7 @@ class RagTokenForGeneration(RagForGeneration):
 
         for t in range(max_new_tokens - 1):  # Auto-regressive generation
             # Dynamic re-ranking every `self.config.reranker.period` steps
-            with time_meter.timer("CRCG_LatencyPerToken"):
+            with time_meter.timer("LatencyPerToken"):
                 if self.do_rerank and (self.config.reranker.period == 0 or (t + 1) % self.config.reranker.period == 0):
                     scores = self._rerank_documents(query_ids, output_ids, doc_texts, scores)
                 scores_list.append(scores)
@@ -242,7 +242,7 @@ class RagTokenForGeneration(RagForGeneration):
                     input_ids, attention_mask, scores, n_logits=1, past_key_values=past_key_values)
                 logprobs.append(logprobs_token_wise)
                 output_ids.append(next_token)
-            self.stats.update(time_meter.timer('CRCG_LatencyPerToken'))
+            self.stats.update(time_meter.timer('LatencyPerToken'))
             pbar.update(1)
         pbar.close()
         logprobs = torch.vstack(logprobs)    # (max_new_tokens, s_vocab)

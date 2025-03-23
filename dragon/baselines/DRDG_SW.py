@@ -84,12 +84,12 @@ class DRDG_SW:
         while not self.remote_prepare_complete:
             time.sleep(0.1)
         self._send_begin_decode()
-        with time_meter.timer("LatencyPerSequence"):    
+        with time_meter.timer("LatencyPerToken"):    
             logits, scores = self.rag.decoding()
             self.draft_loc.put((logits, scores))
             output_ids = self.aggregate()
-        time_meter.timer("LatencyPerSequence").duration /= max_new_tokens
-        self.stats.update(time_meter.timer("LatencyPerSequence"))
+        time_meter.timer("LatencyPerToken").duration /= max_new_tokens
+        self.stats.update(time_meter.timer("LatencyPerToken"))
         return self.rag.generator.tokenizer.decode(output_ids, skip_special_tokens=True)
     
     def aggregate(self):

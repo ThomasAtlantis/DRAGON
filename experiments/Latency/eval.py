@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 import sys, os
 sys.path.append(".")
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
@@ -52,6 +53,14 @@ class LatencyEvaluator(Evaluator):
             print(item['query'])
             output_txt = self.device.query(item['query'], self.prompt_template, self.max_new_tokens)
             print(output_txt)
+
+        run_output_dir = Path(self.config.output_dir, self.run_id)
+        run_output_dir.mkdir(parents=True, exist_ok=True)
+        stats_file = run_output_dir / f"stats.json"
+    
+        from dragon.aggregator import stats as aggregator_stats
+        (self.device.stats | aggregator_stats).dump(stats_file)
+        self.logger.info(f"Stats saved to `{stats_file}`")
         self.device.shutdown()
 
 if __name__ == "__main__":
@@ -59,8 +68,6 @@ if __name__ == "__main__":
     config.parse_sys_args()
     config.generator.s_sequence = 1024
     config.retriever.s_context = 256
-    config.retriever.n_docs = 2
-    config.retriever.s_aggregate = 2
     config.sampler.do_sample = False
     config.trans.tx_port = 6000
     config.trans.rx_port = 6001
