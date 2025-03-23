@@ -7,7 +7,8 @@ python experiments/Latency/eval.py \
     --device cuda:0 \
     --retriever.passages "wikipedia[remote]" \
     --generator.model "facebook/opt-1.3b" \
-    --generator.use_fp16
+    --generator.use_fp16 \
+    --evaluator.n_prompts 5
 ```
 
 ### Device
@@ -17,9 +18,10 @@ python experiments/Latency/eval.py \
     --device cpu \
     --retriever.passages "wikipedia[remote]" \
     --generator.model "facebook/opt-1.3b" \
-    --evaluator.max_new_tokens 10 \
+    --evaluator.max_new_tokens 20 \
     --generator.use_fp16 \
-    --aggregator.mode synchronized
+    --aggregator.mode synchronized \
+    --evaluator.n_prompts 5
 ```
 
 ## DRAGON
@@ -31,7 +33,8 @@ python experiments/Latency/eval.py \
     --device cuda:0 \
     --retriever.passages "wikipedia[remote]" \
     --generator.model "facebook/opt-1.3b" \
-    --generator.use_fp16
+    --generator.use_fp16 \
+    --evaluator.n_prompts 5
 ```
 
 ### Device
@@ -41,9 +44,10 @@ python experiments/Latency/eval.py \
     --device cpu \
     --retriever.passages "wikipedia[remote]" \
     --generator.model "facebook/opt-1.3b" \
-    --evaluator.max_new_tokens 10 \
+    --evaluator.max_new_tokens 20 \
     --generator.use_fp16 \
-    --aggregator.mode speculative
+    --aggregator.mode speculative \
+    --evaluator.n_prompts 5
 ```
 
 ## DRDG/SW
@@ -54,7 +58,8 @@ python experiments/Latency/eval_DRDG_SW.py \
     --device cuda:0 \
     --retriever.passages "wikipedia[remote]" \
     --generator.model "facebook/opt-1.3b" \
-    --generator.use_fp16
+    --generator.use_fp16 \
+    --evaluator.n_prompts 5
 ```
 
 ### Device
@@ -64,7 +69,29 @@ python experiments/Latency/eval_DRDG_SW.py \
     --device cpu \
     --retriever.passages "wikipedia[remote]" \
     --generator.model "facebook/opt-1.3b" \
-    --evaluator.max_new_tokens 10 \
-    --generator.use_fp16
+    --evaluator.max_new_tokens 20 \
+    --generator.use_fp16 \
+    --evaluator.n_prompts 5
+```
 
+## CRCG/Cloud
+```shell
+python experiments/Latency/eval_CRCG.py \   
+        --device cuda:0 \
+        --retriever.passages "wikipedia[remote]" \
+        --generator.model "facebook/opt-1.3b" \
+        --evaluator.max_new_tokens 20 \
+        --generator.use_fp16 \
+        --evaluator.n_prompts 5
+```
+
+## CRCG/Device
+```shell
+python experiments/Latency/eval_CRCG.py \   
+        --device cpu \
+        --retriever.passages "wikipedia[remote]" \
+        --generator.model "facebook/opt-1.3b" \
+        --evaluator.max_new_tokens 20 \
+        --generator.use_fp16 \
+        --evaluator.n_prompts 5
 ```

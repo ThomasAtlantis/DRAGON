@@ -9,14 +9,14 @@ from dragon.config import DragonConfig
 from dragon.utils.stable import seed_everything
 from dragon.utils.configure import Field as F
 from experiments.evaluator import Evaluator
-from dragon.baselines.centralized_rag import RagSequenceForGeneration, RagTokenForGeneration
+from dragon.baselines.centralized_rag import RagTokenForGeneration
 
 seed_everything(42)
 
 
-def get_prompt_dataset():
+def get_prompt_dataset(total=2):
     with open("prompts.json", "r") as f:
-        prompts = f.readlines()
+        prompts = f.readlines()[: total]
     return prompts
 
 class LatencyConfig(DragonConfig):
@@ -24,20 +24,17 @@ class LatencyConfig(DragonConfig):
         output_dir = F(str, default="outputs/", help="Output directory")
         max_new_tokens = F(int, default=100, help="Maximum number of tokens to generate")
         prompt_template = F(str, default="Context: {context}.\nInstruction: {query}\nAnswer: ", help="Prompt template")
-        method = F(str, default="seq", help="Method for evaluation: seq or tok")
+        n_prompts = F(int, default=2, help="Number of prompts to evaluate")
 
 class LatencyEvaluator(Evaluator):
     
     def __init__(self, config: LatencyConfig):
         super().__init__(config, name="Latency")
-        if config.evaluator.method == "seq":
-            self.rag = RagSequenceForGeneration(config)
-        else:
-            self.rag = RagTokenForGeneration(config)
+        self.rag = RagTokenForGeneration(config)
         self.tokenizer = self.rag.generator.tokenizer
         self.max_new_tokens = config.evaluator.max_new_tokens
         self.prompt_template = config.evaluator.prompt_template
-        self.dataset = get_prompt_dataset()
+        self.dataset = get_prompt_dataset(config.evaluator.n_prompts)
 
     def evaluate(self):
         for i, query in enumerate(tqdm(self.dataset)):
