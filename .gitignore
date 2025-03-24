@@ -6,7 +6,7 @@
 .cache/
 .VSCodeCounter/
 /data
-/outputs
+# /outputs
 /test*
 !/tests/
 /tmp*
