@@ -10,17 +10,6 @@ import time
 from tqdm import trange
 from dragon.queues import DraftItem
 
-from dragon import generator
-from dragon import transceiver
-from dragon import decoder
-from dragon import dragon
-from dragon import aggregator
-generator.logging_level = "ERROR"
-transceiver.logging_level = "ERROR"
-decoder.logging_level = "ERROR"
-dragon.logging_level = "ERROR"
-aggregator.logging_level = "ERROR"
-
 from dragon.config import DragonConfig
 from dragon.utils.meter import Statistics, TimeMeter
 from dragon.baselines.centralized_rag import RagForGeneration
@@ -68,7 +57,7 @@ class TTFTEvaluator(Evaluator):
 
         self.stats = Statistics()
         self.draft_loc = queue.Queue(0)
-        self.draft_rem = queue.Queue(0)
+        self.download_complete = queue.Queue(0)
         self.start_time = None
         self.transceiver = Transceiver(config)
         self.transceiver.register_observers(self._collect_observers())
@@ -77,9 +66,9 @@ class TTFTEvaluator(Evaluator):
     def _collect_observers(self):
         return [
             self._rx_ready_for_generation,
-            self._rx_draft_token,
+            self._rx_kv_cache,
             self._rx_begin_generate,
-            self._rx_shutdown
+            self._rx_shutdown,
         ]
     
     def _rx_ready_for_generation(self, mtype: int, mbody: object):
@@ -88,37 +77,33 @@ class TTFTEvaluator(Evaluator):
         self.logger.info("Remote is ready for generation.")
         return True
     
-    def _send_draft_token(self, draft_item: DraftItem):
-        self.transceiver.send(Message.DRAFT_TOKEN, draft_item.as_tuple())
+    def _send_kv_cache(self, past_key_values: DraftItem):
+        self.logger.info("Sending key-values cache...")
+        past_key_values = list(past_key_values)
+        for i, _ in enumerate(past_key_values):
+            past_key_values[i] = list(past_key_values[i])
+            past_key_values[i][0] = past_key_values[i][0].cpu().float().numpy()
+            past_key_values[i][1] = past_key_values[i][1].cpu().float().numpy()
+            past_key_values[i] = tuple(past_key_values[i])
+        past_key_values = tuple(past_key_values)
+        self.transceiver.send(Message.KV_CACHE, past_key_values)
     
-    def _rx_draft_token(self, mtype: int, mbody: object):
-        if mtype != Message.DRAFT_TOKEN: return False
-        draft_item = DraftItem.from_tuple(mbody)
-        self.draft_rem.put(draft_item)
+    def _rx_kv_cache(self, mtype: int, mbody: object):
+        if mtype != Message.KV_CACHE: return False
+        self.logger.info("Received key-values cache.")
         self.draft_loc.get()
-        self.draft_rem.get()
         elapsed_time = time.time() - self.start_time
-        self.stats.update(name="TTFT", stat=elapsed_time)
+        self.download_complete.put(elapsed_time)
     
     def _rx_begin_generate(self, mtype: int, mbody: object):
         if mtype != Message.BEGIN_GENERATE: return False
         self.stats.new_record()
         query, prompt_template, i = mbody
         time.sleep(0.0526)  # simulate retrieval
-        with time_meter.timer("Prefilling"):
-            next_token, logprobs, _ = self.rag._generate(
-            self.context_input_ids_list[i], self.attention_mask_list[i], self.scores_list[i], n_logits=1)
-            logprobs = logprobs[0]
-        self.stats.update(time_meter.timer("Prefilling"))
-
-        draft_item = DraftItem(
-            token=next_token,
-            logprobs=logprobs,
-            weight=0.0,
-            step=0
-        )
-        self.draft_loc.put(draft_item)
-        self._send_draft_token(draft_item)
+        next_token, logprobs, past_key_value = self.rag._generate(
+        self.context_input_ids_list[i], self.attention_mask_list[i], self.scores_list[i], n_logits=1)
+        logprobs = logprobs[0]
+        self._send_kv_cache(past_key_value)
 
     def _rx_shutdown(self, mtype: int, mbody: object):
         if mtype != Message.SHUTDOWN: return False
@@ -145,19 +130,9 @@ class TTFTEvaluator(Evaluator):
             self.logger.info("Start evaluation...")
             self.stats.new_record()
             time.sleep(0.0526)  # simulate retrieval
-            with time_meter.timer("Prefilling"):
-                next_token, logprobs, _ = self.rag._generate(
-                self.context_input_ids_list[i], self.attention_mask_list[i], self.scores_list[i], n_logits=1)
-                logprobs = logprobs[0]
-            self.stats.update(time_meter.timer("Prefilling"))
-
-            draft_item = DraftItem(
-                token=next_token,
-                logprobs=logprobs,
-                weight=0.0,
-                step=0
-            )
-            self.draft_loc.put(draft_item)
+            self.draft_loc.put(None)
+            elapsed_time = self.download_complete.get()
+            self.stats.update(name="DownloadKV", stat=elapsed_time)
         
         if self.dragon_config.trans.rank == 1:
             self.transceiver.send(Message.SHUTDOWN, None)

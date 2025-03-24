@@ -25,6 +25,7 @@ class Message:
     DRAT_SEQUENCE = 8
     PREPARE_COMPLETE = 9
     BEGIN_DECODE = 10
+    KV_CACHE = 11
     header = ">B I"
 
     @staticmethod

@@ -18,7 +18,7 @@ def topp_pack(logprobs: torch.Tensor, probs_topp: float, probs_type: np.dtype) -
     reserved_indices = reserved_indices.cpu().numpy()
     reserved_indices = (reserved_indices - 30000).astype(np.int16)
     reserved_indices = lz4.frame.compress(reserved_indices.tobytes(), compression_level=9)
-    reserved_logprobs = reserved_logprobs.cpu().numpy().astype(probs_type)
+    reserved_logprobs = reserved_logprobs.cpu().to(torch.float16).numpy().astype(probs_type)
     reserved_logprobs = lz4.frame.compress(reserved_logprobs.tobytes(), compression_level=9)
     return reserved_indices, reserved_logprobs
 
@@ -62,7 +62,7 @@ class DraftItem:
         if DraftItem._probs_topp < 1.0:
             logprobs_compressed = topp_pack(self.logprobs, DraftItem._probs_topp, DraftItem._probs_type)
         else:
-            logprobs_bytes = self.logprobs.cpu().numpy().astype(DraftItem._probs_type).tobytes()
+            logprobs_bytes = self.logprobs.cpu().to(torch.float16).numpy().astype(DraftItem._probs_type).tobytes()
             logprobs_compressed = lz4.frame.compress(logprobs_bytes, compression_level=9)
         return (
             self.token,
