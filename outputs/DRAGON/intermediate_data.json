@@ -1,0 +1,1425 @@
+[
+    {
+        "id": "dev_0",
+        "question": "who sings does he love me with reba",
+        "golden_answers": [
+            "Linda Davis"
+        ],
+        "output": {
+            "pred": "~~~Reba McEntire",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_1",
+        "question": "how many pages is invisible man by ralph ellison",
+        "golden_answers": [
+            "581 (second edition)"
+        ],
+        "output": {
+            "pred": "The Invisible Man is a",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_2",
+        "question": "where do the great lakes meet the ocean",
+        "golden_answers": [
+            "the Saint Lawrence River"
+        ],
+        "output": {
+            "pred": "Lake Superior The Great Lakes are the largest freshwater",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_3",
+        "question": "when does the new my hero academia movie come out",
+        "golden_answers": [
+            "July 5, 2018"
+        ],
+        "output": {
+            "pred": "!!!\n\nPlot\n\nThe film opens with",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_4",
+        "question": "what is the smallest prime number that is greater than 30",
+        "golden_answers": [
+            "31"
+        ],
+        "output": {
+            "pred": "(1)  (2)  (3",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_5",
+        "question": "who plays letty in bring it on all or nothing",
+        "golden_answers": [
+            "Francia Raisa"
+        ],
+        "output": {
+            "pred": "Vanessa Hudgens\n\nEarly life",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_6",
+        "question": "who was the creator of victoria's secret",
+        "golden_answers": [
+            "Roy Raymond"
+        ],
+        "output": {
+            "pred": "'s\n\nThe answer is:",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_7",
+        "question": "when did wesley leave last of the summer wine",
+        "golden_answers": [
+            "2002"
+        ],
+        "output": {
+            "pred": "in the first episode of the series He also",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_8",
+        "question": "who introduced the system of civil services in india",
+        "golden_answers": [
+            "Charles Cornwallis"
+        ],
+        "output": {
+            "pred": "??????\n\nThe caste system in India is",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_9",
+        "question": "southern soul was considered the sound of what independent record label",
+        "golden_answers": [
+            "Motown"
+        ],
+        "output": {
+            "pred": "The answer is:",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_10",
+        "question": "who is the bad guy in lord of the rings",
+        "golden_answers": [
+            "Sauron"
+        ],
+        "output": {
+            "pred": "Saruman\n\nSaruman is a",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_11",
+        "question": "where is the most distortion on a robinson projection",
+        "golden_answers": [
+            "close to the poles"
+        ],
+        "output": {
+            "pred": "The Robinson projection is a map projection",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_12",
+        "question": "when was the public service commission original version of the upsc set up",
+        "golden_answers": [
+            "October 1, 1926"
+        ],
+        "output": {
+            "pred": "The answer is:",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_13",
+        "question": "what is the name of wonder womans mother",
+        "golden_answers": [
+            "Queen Hippolyta"
+        ],
+        "output": {
+            "pred": "The character was created by",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_14",
+        "question": "which apostle had a thorn in his side",
+        "golden_answers": [
+            "Paul"
+        ],
+        "output": {
+            "pred": "ʿAbd al-ʿAziz",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_15",
+        "question": "where is each type of cartilage located in the body",
+        "golden_answers": [
+            "rib cage",
+            "intervertebral discs",
+            "many other body components",
+            "bronchial tubes",
+            "ear",
+            "nose"
+        ],
+        "output": {
+            "pred": "The cartilage matrix is",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_16",
+        "question": "who wrote the song two out of three ain't bad",
+        "golden_answers": [
+            "Meat Loaf"
+        ],
+        "output": {
+            "pred": "Meat Loaf\n\nThe song was also",
+            "metric_score": {
+                "f1": 0.5714285714285715,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_17",
+        "question": "where is human sperm stored in the body",
+        "golden_answers": [
+            "in the epididymis"
+        ],
+        "output": {
+            "pred": "The human sperm cell is hapl",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_18",
+        "question": "when did bat out of hell get released",
+        "golden_answers": [
+            "September 1977"
+        ],
+        "output": {
+            "pred": "Bat Out of Hell was released on September 27,",
+            "metric_score": {
+                "f1": 0.1818181818181818,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_19",
+        "question": "when were manatees put on the endangered list",
+        "golden_answers": [
+            "1966"
+        ],
+        "output": {
+            "pred": "The manatee is",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_20",
+        "question": "who has the most receiving yards in one game",
+        "golden_answers": [
+            "Flipper Anderson"
+        ],
+        "output": {
+            "pred": "The answer is:",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_21",
+        "question": "when does the new season of el señor de los cielos start",
+        "golden_answers": [
+            "May 8 2018"
+        ],
+        "output": {
+            "pred": "!!!\n\nThe series was renewed for a seventh",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_22",
+        "question": "who played young king t'chaka in black panther",
+        "golden_answers": [
+            "Atandwa Kani"
+        ],
+        "output": {
+            "pred": "??????\n\nAtandwa Kani was",
+            "metric_score": {
+                "f1": 0.8,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_23",
+        "question": "when was the first manmade object sent into space",
+        "golden_answers": [
+            "3 October 1942"
+        ],
+        "output": {
+            "pred": "The context: Project Manhigh /",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_24",
+        "question": "how many games to get premier league medal",
+        "golden_answers": [
+            "a minimum of five"
+        ],
+        "output": {
+            "pred": "สันที",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_25",
+        "question": "when is star vs the forces of evil coming back on 2017",
+        "golden_answers": [
+            "November 6, 2017"
+        ],
+        "output": {
+            "pred": "!!!\n\nThe series is produced by Disney Channel",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_26",
+        "question": "when is the fifth round of the fa cup played",
+        "golden_answers": [
+            "16 February 2018"
+        ],
+        "output": {
+            "pred": "on the weekend of the 24th of January",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_27",
+        "question": "who is the chief legal advisor to the government",
+        "golden_answers": [
+            "Law Officers of the Crown"
+        ],
+        "output": {
+            "pred": "The context is:",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_28",
+        "question": "what do they call snowboarders in johnny tsunami",
+        "golden_answers": [
+            "Urchins"
+        ],
+        "output": {
+            "pred": "The rescue of the two",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_29",
+        "question": "who is tanyas husband in real housewives of cheshire",
+        "golden_answers": [
+            "Phil Bardsley"
+        ],
+        "output": {
+            "pred": "ian\n\nThe character of Tanya was",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_30",
+        "question": "where are tight junctions found in the human body",
+        "golden_answers": [
+            "vertebrates"
+        ],
+        "output": {
+            "pred": "The tight junction is a",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_31",
+        "question": "where was the mona lisa kept during ww2",
+        "golden_answers": [
+            "Château de Chambord",
+            "the Loc-Dieu Abbey",
+            "the Ingres Museum",
+            "Château d'Amboise"
+        ],
+        "output": {
+            "pred": "in the Louvre\n\nThe Mona",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_32",
+        "question": "who is the old man in waiting on a woman",
+        "golden_answers": [
+            "Andy Griffith"
+        ],
+        "output": {
+            "pred": "\"Andy Griffith\"\n\nThe song was written",
+            "metric_score": {
+                "f1": 0.5714285714285715,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_33",
+        "question": "who have won the world cup the most times",
+        "golden_answers": [
+            "Brazil"
+        ],
+        "output": {
+            "pred": "Brazil\n\nThe World Cup is the most",
+            "metric_score": {
+                "f1": 0.33333333333333337,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_34",
+        "question": "list of companies with highest number of employees",
+        "golden_answers": [
+            "Walmart",
+            "McDonald's"
+        ],
+        "output": {
+            "pred": "Question: What is the",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_35",
+        "question": "who sang the original version of true colors",
+        "golden_answers": [
+            "Cyndi Lauper"
+        ],
+        "output": {
+            "pred": "Cyndi Lauper\n\nBackground",
+            "metric_score": {
+                "f1": 0.8,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_36",
+        "question": "in attack on titan who is the female titan",
+        "golden_answers": [
+            "Ymir Fritz"
+        ],
+        "output": {
+            "pred": "!!!\n\nThe anime series is based on the",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_37",
+        "question": "what is the horses name in never-ending story",
+        "golden_answers": [
+            "Artax"
+        ],
+        "output": {
+            "pred": "The answer is:",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_38",
+        "question": "who made the first telephone in the world",
+        "golden_answers": [
+            "Alexander Graham Bell"
+        ],
+        "output": {
+            "pred": "The first telephone was invented",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_39",
+        "question": "who is charles off of pretty little liars",
+        "golden_answers": [
+            "Drake",
+            "CeCe"
+        ],
+        "output": {
+            "pred": "In the episode \"The One",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_40",
+        "question": "who got pregnant in gossip girl season 5",
+        "golden_answers": [
+            "Blair"
+        ],
+        "output": {
+            "pred": "????\n\nThe Real Housewives of New York",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_41",
+        "question": "where is the new england patriots stadium located",
+        "golden_answers": [
+            "Foxborough, Massachusetts"
+        ],
+        "output": {
+            "pred": "Gillette Stadium The stadium is located in Fox",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_42",
+        "question": "who played jason in friday the 13th part 1",
+        "golden_answers": [
+            "Ari Lehman"
+        ],
+        "output": {
+            "pred": "!!!\n\nThe character of Jason Voorhe",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_43",
+        "question": "who won the pittsburgh steeler baltimore raven game",
+        "golden_answers": [
+            "Pittsburgh Steelers"
+        ],
+        "output": {
+            "pred": "The Ravens–Steelers rivalry",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_44",
+        "question": "who sang the theme from the greatest american hero",
+        "golden_answers": [
+            "American singer Joey Scarbury"
+        ],
+        "output": {
+            "pred": "\"Believe It or Not\" by Joey Scar",
+            "metric_score": {
+                "f1": 0.18181818181818182,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_45",
+        "question": "who wrote the song the beat goes on",
+        "golden_answers": [
+            "Sonny Bono"
+        ],
+        "output": {
+            "pred": "Sonny Bono\n\nThe song was a",
+            "metric_score": {
+                "f1": 0.6666666666666666,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_46",
+        "question": "who won women's cricket world cup 2016",
+        "golden_answers": [
+            "England"
+        ],
+        "output": {
+            "pred": "The 2016 ICC Women's World",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_47",
+        "question": "who played v in the movie v for vendetta",
+        "golden_answers": [
+            "Hugo Weaving"
+        ],
+        "output": {
+            "pred": "Natalie Portman\n\nPlot\n\nIn",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_48",
+        "question": "who wins the 2017 australian open men's single title",
+        "golden_answers": [
+            "Roger Federer"
+        ],
+        "output": {
+            "pred": "Roger Federer\n\nThe 2017 Australian Open",
+            "metric_score": {
+                "f1": 0.5714285714285715,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_49",
+        "question": "how many judges currently serve on the supreme court",
+        "golden_answers": [
+            "nine"
+        ],
+        "output": {
+            "pred": "(1)\n\nThe answer is:",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_50",
+        "question": "who did the toronto maple leafs draft this year",
+        "golden_answers": [
+            "Semyon Kizimov",
+            "Riley Stotts",
+            "Pontus Holmberg",
+            "Mac Hollowell",
+            "Zachary Bouthillier",
+            "Filip Kral",
+            "Sean Durzi",
+            "Rasmus Sandin",
+            "Semyon Der-Arguchintsev"
+        ],
+        "output": {
+            "pred": "The Toronto Maple Leafs have been",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_51",
+        "question": "who is the youngest judge currently sitting on the u.s. supreme court",
+        "golden_answers": [
+            "Neil Gorsuch"
+        ],
+        "output": {
+            "pred": "The answer is:",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_52",
+        "question": "who does the voice for love island australia",
+        "golden_answers": [
+            "Eoghan McDermott"
+        ],
+        "output": {
+            "pred": "ian stirling The series was renewed for a",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_53",
+        "question": "when did beauty and the beast come out on dvd",
+        "golden_answers": [
+            "June 6, 2017"
+        ],
+        "output": {
+            "pred": "?????\"\n\nThe film was released on Blu",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_54",
+        "question": "when was the last time the 76ers went to the finals",
+        "golden_answers": [
+            "2001"
+        ],
+        "output": {
+            "pred": "The 76ers have been",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_55",
+        "question": "who wrote variations on twinkle twinkle little star",
+        "golden_answers": [
+            "Jane Taylor"
+        ],
+        "output": {
+            "pred": "\"Twinkle, Twinkle, Little Star\"",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_56",
+        "question": "when did the king kong ride burn down",
+        "golden_answers": [
+            "2008"
+        ],
+        "output": {
+            "pred": "The ride was closed on",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_57",
+        "question": "who plays mrs. potato head in toy story",
+        "golden_answers": [
+            "Estelle Harris"
+        ],
+        "output": {
+            "pred": "!!!\n\nEstelle Harris was born in Manhattan",
+            "metric_score": {
+                "f1": 0.5,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_58",
+        "question": "who sang the original me and bobby mcgee",
+        "golden_answers": [
+            "Roger Miller"
+        ],
+        "output": {
+            "pred": "",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_59",
+        "question": "who plays the fairy god mother in shrek 2",
+        "golden_answers": [
+            "Jennifer Saunders"
+        ],
+        "output": {
+            "pred": "The answer is:",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_60",
+        "question": "5 types of control that could be programmed on a gui",
+        "golden_answers": [
+            "Button",
+            "Slider",
+            "Drop-down list",
+            "List box",
+            "Spinner"
+        ],
+        "output": {
+            "pred": "6\nGraphical",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_61",
+        "question": "who is the actress who plays rita on ncis new orleans",
+        "golden_answers": [
+            "Chelsea Field"
+        ],
+        "output": {
+            "pred": "!!!\n\nOn May 11, 2019, it",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_62",
+        "question": "p diddy nicki minaj hello good morning lyrics",
+        "golden_answers": [
+            "Official Remix"
+        ],
+        "output": {
+            "pred": "!!!\n\nMusic video\nThe music video for",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_63",
+        "question": "element whose third shell contains two p electrons",
+        "golden_answers": [
+            "Magnesium"
+        ],
+        "output": {
+            "pred": "The answer is:",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_64",
+        "question": "who is the ceo of t rowe price",
+        "golden_answers": [
+            "William Stromberg"
+        ],
+        "output": {
+            "pred": "The context: T",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_65",
+        "question": "who plays caroline on the bold and beautiful",
+        "golden_answers": [
+            "Linsey Godfrey"
+        ],
+        "output": {
+            "pred": "Linsey Godfrey\n\nEarly life",
+            "metric_score": {
+                "f1": 0.6666666666666666,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_66",
+        "question": "when does the second part of season 3 fuller house",
+        "golden_answers": [
+            "December 22, 2017"
+        ],
+        "output": {
+            "pred": "The show is set in the",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_67",
+        "question": "who played davenport in last of the summer wine",
+        "golden_answers": [
+            "Josephine Tewson"
+        ],
+        "output": {
+            "pred": "",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_68",
+        "question": "who plays chaka in land of the lost",
+        "golden_answers": [
+            "Jorma Taccone"
+        ],
+        "output": {
+            "pred": "Sean Bean\n\nPlot\n\nThe film",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_69",
+        "question": "who narrated the original 1966 how the grinch stole christmas",
+        "golden_answers": [
+            "Boris Karloff"
+        ],
+        "output": {
+            "pred": "Dr Seuss\n\nThe special was",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_70",
+        "question": "is the governor of puerto rico democratic or republican",
+        "golden_answers": [
+            "Democrat"
+        ],
+        "output": {
+            "pred": "The context: Julia Sal",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_71",
+        "question": "i've got a brand new pair of roller skates original artist",
+        "golden_answers": [
+            "Melanie"
+        ],
+        "output": {
+            "pred": "\"Brand New Key\" is a pop song written",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_72",
+        "question": "who is the head coach of the minnesota timberwolves",
+        "golden_answers": [
+            "Thomas Joseph Thibodeau Jr."
+        ],
+        "output": {
+            "pred": "Kurt Rambis\n\nOn July 1",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_73",
+        "question": "who plays zack and cody in the suite life",
+        "golden_answers": [
+            "Dylan and Cole Sprouse"
+        ],
+        "output": {
+            "pred": "The show was canceled after one season",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_74",
+        "question": "who was the last person executed in ireland",
+        "golden_answers": [
+            "Michael Manning"
+        ],
+        "output": {
+            "pred": "Capital punishment in Ireland /",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_75",
+        "question": "where are the fruits of the spirit found in the bible",
+        "golden_answers": [
+            "Epistle to the Galatians"
+        ],
+        "output": {
+            "pred": "The fruit of the Holy Spirit",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_76",
+        "question": "when was the planning commission set up to prepare a blue print of development for the country",
+        "golden_answers": [
+            "15 March 1950"
+        ],
+        "output": {
+            "pred": "ಕರ್�",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_77",
+        "question": "who is the coach of arizona state men's basketball",
+        "golden_answers": [
+            "Bobby Hurley"
+        ],
+        "output": {
+            "pred": "Sean Miller\n\nHead coaching record",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_78",
+        "question": "who won i want to work for diddy",
+        "golden_answers": [
+            "Suzanne Siegel"
+        ],
+        "output": {
+            "pred": "????\n\nThe show was cancelled after one season",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_79",
+        "question": "who played mason on wizards of waverly place",
+        "golden_answers": [
+            "Sulkin"
+        ],
+        "output": {
+            "pred": "!!!\n\nDaniel Samonas\n\nDaniel",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_80",
+        "question": "where is the mesophyll located in a plant",
+        "golden_answers": [
+            "In leaves"
+        ],
+        "output": {
+            "pred": "The context: The mesophy",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_81",
+        "question": "who was the richest person in us history adjusted for inflation",
+        "golden_answers": [
+            "Jakob Fugger"
+        ],
+        "output": {
+            "pred": "The answer is:",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_82",
+        "question": "who directed one flew over the cuckoos nest",
+        "golden_answers": [
+            "Miloš Forman"
+        ],
+        "output": {
+            "pred": "Miloš Forman\n\nPlot",
+            "metric_score": {
+                "f1": 0.8,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_83",
+        "question": "who plays mayor hamilton on ncis new orleans",
+        "golden_answers": [
+            "Steven Robert Weber"
+        ],
+        "output": {
+            "pred": "Anthony Ramos\n\nEarly life\n\nAnthony",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_84",
+        "question": "who sings bartender i really did it this time",
+        "golden_answers": [
+            "American southern rock group Rehab"
+        ],
+        "output": {
+            "pred": "!!!\n\nThe song was also featured on the",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_85",
+        "question": "who did the lions play on thanksgiving last year",
+        "golden_answers": [
+            "Minnesota Vikings"
+        ],
+        "output": {
+            "pred": "The answer is:",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_86",
+        "question": "who is the owner of phoenix mall pune",
+        "golden_answers": [
+            "Phoenix Mills Limited"
+        ],
+        "output": {
+            "pred": "Â Phoenix Market City (Pune) Phoenix Market",
+            "metric_score": {
+                "f1": 0.2,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_87",
+        "question": "what is the postal code for warri nigeria",
+        "golden_answers": [
+            "332"
+        ],
+        "output": {
+            "pred": "The postal code for Warri is",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_88",
+        "question": "who wrote somebody like you by keith urban",
+        "golden_answers": [
+            "John Shanks",
+            "Keith Urban"
+        ],
+        "output": {
+            "pred": "",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_89",
+        "question": "when was the last time loyola made march madness",
+        "golden_answers": [
+            "2018"
+        ],
+        "output": {
+            "pred": "The Ramblers have appeared in the",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_90",
+        "question": "who plays christian grey in 50 shades of grey",
+        "golden_answers": [
+            "James Dornan"
+        ],
+        "output": {
+            "pred": "ian somerhalder\n\nDorn",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_91",
+        "question": "where was sir gawain and the green knight written",
+        "golden_answers": [
+            "late 14th-century"
+        ],
+        "output": {
+            "pred": "in the year 1485\n\nThe story",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_92",
+        "question": "in what year did japan attack pearl harbor",
+        "golden_answers": [
+            "1941"
+        ],
+        "output": {
+            "pred": "The attack on Pearl Harbor",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_93",
+        "question": "when did country boy can survive come out",
+        "golden_answers": [
+            "January 1982"
+        ],
+        "output": {
+            "pred": "January 1982\n\nChart performance\n\nReferences",
+            "metric_score": {
+                "f1": 0.5714285714285715,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_94",
+        "question": "when did michael jordan retired from basketball for good",
+        "golden_answers": [
+            "2003"
+        ],
+        "output": {
+            "pred": "The answer is:",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_95",
+        "question": "the story idea for the yellow wallpaper was based on a civil war treatment called",
+        "golden_answers": [
+            "rest cure"
+        ],
+        "output": {
+            "pred": "The Yellow Wallpaper is a short story by American",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_96",
+        "question": "when is the show six coming back on",
+        "golden_answers": [
+            "May 28, 2018"
+        ],
+        "output": {
+            "pred": "!!!\n\nPlot\nSix is a fictional television",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_97",
+        "question": "when was the first time the word catholic was used",
+        "golden_answers": [
+            "in the early 2nd century"
+        ],
+        "output": {
+            "pred": "The answer is:",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_98",
+        "question": "how many o'reilly auto parts stores are there",
+        "golden_answers": [
+            "5,100"
+        ],
+        "output": {
+            "pred": "Â 1,000\n\nO'Reilly",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    },
+    {
+        "id": "dev_99",
+        "question": "the good doctor season 1 episode 2 air date",
+        "golden_answers": [
+            "October 2, 2017"
+        ],
+        "output": {
+            "pred": "!!!\n\nThe Good Doctor (TV series)",
+            "metric_score": {
+                "f1": 0,
+                "em": 0.0
+            }
+        }
+    }
+]
