@@ -6,6 +6,8 @@ from typing import List
 from pathlib import Path
 
 from tqdm import tqdm
+
+from dragon.profiler import Profiler
 from .rag import Rag
 from .transceiver import Message
 from .config import DragonConfig
@@ -79,6 +81,14 @@ class Dragon:
         thread.start()
         return thread
     
+    def _build_profiler(self, query, prompt_template, max_new_tokens):
+        thread = Profiler(
+            self.config, self.rag, 
+            query, prompt_template, max_new_tokens
+        )
+        thread.start()
+        return thread
+    
     def _clean_up(self):
         self.transceiver.receive_queue.queue.clear()
         self.rag.generator.input_queue.queue.clear()
@@ -90,6 +100,7 @@ class Dragon:
 
     def _start_up(self, query, prompt_template, max_new_tokens):
         self.stats.new_record()
+        self.profiler = self._build_profiler(query, prompt_template, max_new_tokens)
         self.process_bar = tqdm(total=max_new_tokens, desc="Generating", leave=False)
         self.recompute_checker = threading.Thread(
             target=self.check_recompute, args=(max_new_tokens,))
