@@ -2,6 +2,8 @@
 from queue import Queue
 import threading
 
+from dragon.utils.meter import Statistics, TimeMeter
+
 from .rag import Rag
 from .generator import CausalOutput
 from .queues import DraftItem
@@ -9,6 +11,8 @@ from .utils.mlogging import Logger
 
 
 logging_level = "INFO"
+time_meter = TimeMeter()
+stats = Statistics()
 
 class Decoder(threading.Thread):
     
@@ -28,6 +32,9 @@ class Decoder(threading.Thread):
 
         self.output_ids = []
         self.step = 0
+
+        global stats
+        stats.new_record()
 
     def prefilling(self) -> CausalOutput:
         output = self.rag._generate(self.input_ids, self.attention_mask, self.scores)
@@ -72,11 +79,15 @@ class Decoder(threading.Thread):
         while self.output_tokens.qsize() < self.n_steps:
             if self.step < self.n_steps:
                 self.logger.debug(f"step {self.step}: n_output_tokens={self.output_tokens.qsize()}")
-            temp_output, temp_attention_mask = self.rag.generate(
-                output.next_token, self.scores, self.attention_mask, past_key_values=output.past_key_values)
+            with time_meter.timer("latency_dec_loc"):
+                temp_output, temp_attention_mask = self.rag.generate(
+                    output.next_token, self.scores, self.attention_mask, past_key_values=output.past_key_values)
             if not temp_output:
                 output = self._scroll_back(output)
             else:
+                stats.update(time_meter.timer("latency_dec_loc"))
+                stats.update(name="steps", stat=self.step)
+                
                 self.step += 1
                 output, self.attention_mask = temp_output, temp_attention_mask
                 self._synchronize_output_to_remote(output)

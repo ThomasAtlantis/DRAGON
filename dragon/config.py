@@ -52,7 +52,10 @@ class DragonConfig(Configure):
         top_p               = F(float,default=1.0,   help="Top-p sampling")
     
     class aggregator:
-        mode               = F(str,  default="synchronized", help="Aggregation mode")
+        mode                = F(str,  default="synchronized", help="Aggregation mode")
+
+    class profiler:
+        n_epochs            = F(int, default=3, help="Number of epochs to evaluate the latency offline")
     
     class trans:
         rank = F(int, default=0, help="Index of the transceiver")

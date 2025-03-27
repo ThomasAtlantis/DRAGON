@@ -7,7 +7,7 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from dragon.profiler import Profiler
+from dragon.profiler import OfflineProfiler
 from .rag import Rag
 from .transceiver import Message
 from .config import DragonConfig
@@ -82,12 +82,12 @@ class Dragon:
         return thread
     
     def _build_profiler(self, query, prompt_template, max_new_tokens):
-        thread = Profiler(
+        offline_profiler = OfflineProfiler(
             self.config, self.rag, 
             query, prompt_template, max_new_tokens
         )
-        thread.start()
-        return thread
+        offline_profiler.start()
+        return offline_profiler
     
     def _clean_up(self):
         self.transceiver.receive_queue.queue.clear()
@@ -100,7 +100,6 @@ class Dragon:
 
     def _start_up(self, query, prompt_template, max_new_tokens):
         self.stats.new_record()
-        self.profiler = self._build_profiler(query, prompt_template, max_new_tokens)
         self.process_bar = tqdm(total=max_new_tokens, desc="Generating", leave=False)
         self.recompute_checker = threading.Thread(
             target=self.check_recompute, args=(max_new_tokens,))
@@ -114,6 +113,9 @@ class Dragon:
             self._clean_up()
 
     def query(self, query: str, prompt_template: str, max_new_tokens: int):        
+        
+        self.profiler = self._build_profiler(query, prompt_template, max_new_tokens)
+        
         # Inform remote decoding
         self._send_begin_generate(query, prompt_template, max_new_tokens)
         self._start_up(query, prompt_template, max_new_tokens)
@@ -152,6 +154,7 @@ class Dragon:
             self._rx_begin_generate,
             self._rx_draft_token,
             self._rx_target_token,
+            self._rx_profile,
             self._rx_shutdown
         ]
 
@@ -165,6 +168,8 @@ class Dragon:
         if mtype != Message.BEGIN_GENERATE: return False
         query, prompt_template, max_new_tokens = mbody
         self.logger.debug(f"Generating response for query: {query}")
+        self.profiler = self._build_profiler(query, prompt_template, max_new_tokens)
+        self._send_profile(self.profiler.stats.records)
         self._start_up(query, prompt_template, max_new_tokens)
         return True
     
@@ -176,6 +181,19 @@ class Dragon:
     def _rx_target_token(self, mtype: int, mbody: object):
         if mtype != Message.TARGET_TOKEN: return False
         self.target_tokens.put(mbody)
+        return True
+    
+    def _rx_profile(self, mtype: int, mbody: object):
+        if mtype != Message.PROFILE: return False
+        self.logger.info(f"Received profile data.")
+        remote_profiler_stats = Statistics()
+        for record in mbody:
+            remote_profiler_stats.new_record()
+            if 'latency_dec_loc' in record:
+                remote_profiler_stats.records[-1]['latency_dec_rem'] = record['latency_dec_loc']
+            else:
+                remote_profiler_stats.records[-1] = record
+        self.profiler.stats |= remote_profiler_stats
         return True
 
     def _rx_shutdown(self, mtype: int, mbody: object):
@@ -194,3 +212,6 @@ class Dragon:
     def _send_target_token(self, token: int, accept_loc: bool, accept_rem: bool):
         # remote and local are relative concepts
         self.transceiver.send(Message.TARGET_TOKEN, (token, accept_rem, accept_loc))
+
+    def _send_profile(self, profile_data: dict):
+        self.transceiver.send(Message.PROFILE, profile_data)

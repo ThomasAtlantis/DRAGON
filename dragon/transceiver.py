@@ -26,6 +26,7 @@ class Message:
     PREPARE_COMPLETE = 9
     BEGIN_DECODE = 10
     KV_CACHE = 11
+    PROFILE = 12
     header = ">B I"
 
     @staticmethod
