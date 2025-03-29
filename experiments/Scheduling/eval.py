@@ -1,5 +1,6 @@
 from abc import abstractmethod
 import json
+import random
 from typing import List, Union
 import numpy as np
 from dataclasses import dataclass
@@ -10,8 +11,12 @@ class Config(Configure):
     offline_profile = Field(str, default="outputs/Latency-20250326224732/profile.json")
     online_profile  = Field(str, default="outputs/Latency-20250326224732/decoder_stats.json")
     method          = Field(str, default="speculative")
-    max_draft_tokens = Field(int, default=3)
-    max_new_tokens = Field(int, default=10)
+    max_draft_tokens= Field(int, default=3)
+    max_new_tokens  = Field(int, default=10)
+    precision       = Field(float, default=1e-6)
+
+    class scheduler:
+        strategy    = Field(str, default="never")
 
 class Rank:
     CLOUD = 0
@@ -20,6 +25,7 @@ class Rank:
 class Message:
     TARGET = "TargetToken"
     DRAFT = "DraftToken"
+    TURNON_AGGREGATOR = "TurnOnAggregator"
 
 @dataclass
 class TransmissionTask:
@@ -28,7 +34,7 @@ class TransmissionTask:
     dst_id: int
     message: str
     elapsed_time: float
-    latency: float = 0.7
+    latency: float = 0
     complete: bool = False
 
 @dataclass
@@ -72,8 +78,10 @@ class Entity:
     
 class Network(Entity):
 
-    def __init__(self, world):
+    def __init__(self, world, config: Config, latency_trace: callable):
         super().__init__(world)
+        self.config = config
+        self.latency_trace = latency_trace
         self.tasks: List[TransmissionTask] = []
         self.entities: dict[Entity] = {}
 
@@ -83,6 +91,7 @@ class Network(Entity):
         })
 
     def add_task(self, task: TransmissionTask):
+        task.latency = self.latency_trace(self.world.wall_time)
         self.tasks.append(task)
 
     def update(self):
@@ -107,10 +116,10 @@ class Network(Entity):
     
 class EmuWorld:
 
-    def __init__(self, precision=1e-6):
-        self.tick = precision
+    def __init__(self, config: Config, latency_trace: callable):
+        self.tick = config.precision
         self.wall_time = 0
-        self.network = Network(self)
+        self.network = Network(self, config, latency_trace)
         self.entities: List[Entity] = []
         self.records: List[WorldRecord] = []
     
@@ -229,7 +238,7 @@ class EmuDecoder(Entity):
             self.elapsed_time = self.elapsed_time + self.world.tick - current_task
             self.synchronize_draft(DraftItem(
                 token=(self.rank + 1) * self.current_step,
-                time=self.world.wall_time + current_task - self.elapsed_time,
+                time=self.world.wall_time + self.world.tick - self.elapsed_time,
                 step=self.current_step,
                 version=self.version
             ))            
@@ -262,8 +271,12 @@ class EmuAggregator(Entity):
         super().__init__(world)
         with open(config.stats) as f:
             stats = json.load(f)[0]
-        self.acceptance_loc = stats['AcceptanceLoc']
-        self.acceptance_rem = stats['AcceptanceRem']
+        if rank == 0:
+            self.acceptance_loc = stats['AcceptanceLoc']
+            self.acceptance_rem = stats['AcceptanceRem']
+        else:
+            self.acceptance_loc = stats['AcceptanceRem']
+            self.acceptance_rem = stats['AcceptanceLoc']
         self.draft_tokens_loc: List[DraftItem] = draft_tokens_loc
         self.draft_tokens_rem: List[DraftItem] = draft_tokens_rem
         self.target_tokens: List[TargetItem] = target_tokens
@@ -271,6 +284,7 @@ class EmuAggregator(Entity):
         self.version_loc = self.version_rem = 0
         self.where = rank
         self.dst_id = Rank.CLOUD if self.where == Rank.DEVICE else Rank.DEVICE
+        self.start_time = self.world.wall_time
 
     def _get_draft(self, draft_tokens: List[DraftItem], version: int):
         while len(draft_tokens) > 0 and (
@@ -300,6 +314,7 @@ class EmuAggregator(Entity):
         self.world.get_entity_by_id(self.where).notify(
             Message.TARGET, target_item, self.world.wall_time
         )
+        # print(f"Node[{self.where}]{target_item.accept_loc}, Node[{self.dst_id}]{target_item.accept_rem}")
         target_item.accept_loc, target_item.accept_rem = target_item.accept_rem, target_item.accept_loc
         self.world.network.add_task(TransmissionTask(
             title=Message.TARGET, src_id=self.where, dst_id=self.dst_id,
@@ -307,6 +322,7 @@ class EmuAggregator(Entity):
         ))
 
     def update(self):
+        aggregated = False
         while len(self.draft_tokens_loc) > 0 and len(self.draft_tokens_rem) > 0:
             draft_loc = self._get_draft(self.draft_tokens_loc, self.version_loc)
             if draft_loc is None: continue
@@ -315,20 +331,75 @@ class EmuAggregator(Entity):
             target_item = self._aggregate(draft_loc.token, draft_rem.token)
             self._update_version(target_item)
             # transmission should start `elapsed_time` ago
-            elapsed_time = max(0, self.world.wall_time - max(draft_loc.time, draft_rem.time))
+            elapsed_time = max(0, self.world.wall_time - max(draft_loc.time, draft_rem.time, self.start_time))
             self._adjust_queues(target_item, elapsed_time)
-            
-
+            aggregated = True
+        return aggregated
+        
+once = False
+class EmuScheduler(Entity):
+    def __init__(self, world: EmuWorld, config: Config):
+        super().__init__(world)
+        self.strategy = config.scheduler.strategy
+    
+    def schedule(self, profile: SystemProfile):
+        delta_z = strategy(profile)
+        return delta_z > 0
+    
+    def should_switch(self, profile: SystemProfile):
+        if self.strategy == "never":
+            return False
+        elif self.strategy == "always":
+            return True
+        elif self.strategy == "once":
+            global once
+            if not once:
+                once = True
+                return True
+            else:
+                return False
+        elif self.strategy == "random":
+            return random.choice([True, False])
+        else:
+            return self.schedule(profile)
+    
 class Node(Entity):
 
-    def __init__(self, world: EmuWorld, rank):
+    def __init__(self, world: EmuWorld, rank, config: Config):
         super().__init__(world)
+        self.config = config
         self.rank = rank
         self.draft_tokens_loc: List[DraftItem] = []
         self.draft_tokens_rem: List[DraftItem] = []
         self.target_tokens: List[TargetItem] = []
         self.decoder: EmuDecoder = None
         self.aggregator: EmuAggregator = None
+        self.scheduler: EmuScheduler = EmuScheduler(world, config)
+        self.dst_id = Rank.CLOUD if rank == Rank.DEVICE else Rank.DEVICE
+
+    def init_aggregator(self):
+        self.aggregator = EmuAggregator(
+            self.world, self.config, 
+            self.draft_tokens_loc, self.draft_tokens_rem, 
+            self.target_tokens, self.rank
+        )
+
+    def switch_aggregator(self):
+        if self.aggregator is not None:
+            message = {
+                "version_loc": self.aggregator.version_loc, 
+                "version_rem": self.aggregator.version_rem
+            }
+            self.world.network.add_task(
+                TransmissionTask(
+                    title=Message.TURNON_AGGREGATOR,
+                    src_id=self.rank,
+                    dst_id=self.dst_id,
+                    message=message,
+                    elapsed_time=0,
+                )
+            )
+            self.aggregator = None
     
     def _adjust_queues_loc(self, accept_loc: bool, step: int):
         if not accept_loc:
@@ -342,7 +413,7 @@ class Node(Entity):
     def _adjust_queues_rem(self, accept_rem: bool, step: int):
         if not accept_rem:
             self.draft_tokens_rem.clear()
-        else:
+        elif len(self.draft_tokens_rem) > 0:
             self.draft_tokens_rem.pop(0)
 
     def notify(self, title: str, message: Union[DraftItem, TargetItem], time: float):
@@ -355,25 +426,42 @@ class Node(Entity):
             self._adjust_queues_rem(message.accept_rem, message.step)
             self.target_tokens.append(message.token)
             return True
+        if title == Message.TURNON_AGGREGATOR:
+            self.init_aggregator()
+            self.aggregator.version_loc = message["version_rem"]
+            self.aggregator.version_rem = message["version_loc"]
+    
+    def update(self):
+        self.decoder.update()
+        if self.aggregator is not None:
+            aggregated = self.aggregator.update()
+        self.running = len(self.target_tokens) < self.decoder.max_step
+        if self.aggregator is not None and aggregated:
+            decoder_loc = self.decoder
+            decoder_rem = self.world.get_entity_by_id(self.dst_id).decoder
+            acceptance_loc = self.aggregator.acceptance_loc[: len(self.target_tokens)]
+            acceptance_rem = self.aggregator.acceptance_rem[: len(self.target_tokens)]
+            acceptance_loc = np.mean(acceptance_loc) if acceptance_loc else 0
+            acceptance_rem = np.mean(acceptance_rem) if acceptance_rem else 0
+            profile = SystemProfile(
+                rtt=2 * self.world.network.latency_trace(self.world.wall_time),
+                latency_dec_loc=decoder_loc.latency[decoder_loc.current_step],
+                latency_dec_rem=decoder_rem.latency[decoder_rem.current_step],
+                acceptance_rate_loc=acceptance_loc,
+                acceptance_rate_rem=acceptance_rem,
+            )
+            if self.scheduler.should_switch(profile):
+                self.switch_aggregator()
 
 class EmuDevice(Node):
     def __init__(self, world: EmuWorld, config: Config):
-        super().__init__(world, Rank.DEVICE)
+        super().__init__(world, Rank.DEVICE, config)
         self.decoder = EmuDecoderDevice(world, config, self.draft_tokens_loc)
-        self.aggregator = EmuAggregator(world, config, self.draft_tokens_loc, self.draft_tokens_rem, self.target_tokens, self.rank)
-    
-    def update(self):
-        self.decoder.update()
-        self.aggregator.update()
-        self.running = len(self.target_tokens) < self.decoder.max_step
+        self.init_aggregator()
 
 class EmuCloud(Node):
     def __init__(self, world: EmuWorld, config: Config):
-        super().__init__(world, Rank.CLOUD)
+        super().__init__(world, Rank.CLOUD, config)
         self.decoder = EmuDecoderCloud(world, config, self.draft_tokens_loc)
         self.aggregator = None
-    
-    def update(self):
-        self.decoder.update()
-        self.running = len(self.target_tokens) < self.decoder.max_step
     
