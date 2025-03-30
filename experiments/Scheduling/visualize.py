@@ -1,5 +1,5 @@
 from typing import OrderedDict
-from .eval import Config, EmuWorld, Message
+from .simulator import Config, EmuWorld, Message
 from matplotlib import patches
 import matplotlib.pyplot as plt
 import numpy as np
