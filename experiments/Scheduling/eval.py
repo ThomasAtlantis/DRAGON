@@ -1,3 +1,5 @@
+from datetime import datetime
+from pathlib import Path
 import sys; sys.path.append(".")
 from experiments.Scheduling.simulator import Config, EmuWorld, EmuCloud, EmuDevice
 from experiments.Scheduling.simulator import acceptance_stats
@@ -67,9 +69,12 @@ def main():
     evaluate(latency=0.2)
     evaluate(latency=0.3)
     evaluate(latency=0.4)
-    stats.dump("scheduling_stats.json")
+    run_output_dir = Path("outputs", "Scheduling-" + datetime.now().strftime("%Y%m%d%H%M%S"))
+    run_output_dir.mkdir(parents=True, exist_ok=True)
+    stats_file = run_output_dir / f"stats.json"
+    stats.dump(stats_file)
     logger.info("Evaluation completed.")
-    logger.info("Results saved to `scheduling_stats.json`.")
+    logger.info(f"Results saved to `{stats_file}`.")
 
 if __name__ == "__main__":
     main()

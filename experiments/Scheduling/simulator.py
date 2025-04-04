@@ -180,12 +180,14 @@ def strategy(profile: SystemProfile):
         )):
         delta_z = (1 - profile.acceptance_rate_loc) * (profile.latency_dec_rem - profile.latency_dec_loc) + \
             (profile.acceptance_rate_loc - profile.acceptance_rate_rem) * profile.rtt
+        print(f"delta_z({delta_z}) = (1 - {profile.acceptance_rate_loc}) * ({profile.latency_dec_rem} - {profile.latency_dec_loc}) + ({profile.acceptance_rate_loc} - {profile.acceptance_rate_rem}) * {profile.rtt}")
     elif in_range(profile.latency_dec_loc, (
             profile.latency_dec_rem,
             profile.latency_dec_rem + profile.rtt,
         )):
         delta_z = (1 - profile.acceptance_rate_rem) * (profile.latency_dec_rem - profile.latency_dec_loc) + \
             (profile.acceptance_rate_loc - profile.acceptance_rate_rem) * profile.rtt
+        print(f"delta_z({delta_z}) = (1 - {profile.acceptance_rate_rem}) * ({profile.latency_dec_rem} - {profile.latency_dec_loc}) + ({profile.acceptance_rate_loc} - {profile.acceptance_rate_rem}) * {profile.rtt}")
     else:
         delta_z = (profile.acceptance_rate_loc - 1) * profile.rtt
     return delta_z
@@ -351,9 +353,11 @@ class EmuScheduler(Entity):
     def __init__(self, world: EmuWorld, config: Config):
         super().__init__(world)
         self.strategy = config.scheduler.strategy
+        self.delta_zs = []
     
     def schedule(self, profile: SystemProfile):
         delta_z = strategy(profile)
+        self.delta_zs.append((self.world.wall_time, delta_z))
         return delta_z > 0
     
     def should_switch(self, profile: SystemProfile):
