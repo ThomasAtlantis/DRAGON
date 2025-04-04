@@ -14,7 +14,7 @@ from dragon.utils.configure import Configure, Field as F
 class Config(Configure):
     seed = F(int, default=42, help="Random seed")
     total = F(int, default=10, help="Total number of prompts to sample")
-    output_file = F(str, default="prompts.json", help="Output file path")
+    output_file = F(str, default="datasets/prompts/prompts.json", help="Output file path")
 config = Config()
 config.parse_sys_args()
 
