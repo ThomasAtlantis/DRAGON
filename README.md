@@ -1,5 +1,5 @@
 # DRAGON
-DRAGON是一个设备-云分布式RAG框架，支持个性化信息与通用知识的同时集成。
+DRAGON is a device-cloud distributed RAG framework that enables a simultaneous integration of personalized information and generic knowledge.
 
 ## Framework Overview
 ### Class Diagram
