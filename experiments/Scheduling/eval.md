@@ -32,7 +32,7 @@ python experiments/Scheduling/eval_profiling.py \
 ### Qwen
 #### Cloud
 ```shell
-python experiments/Scheduling/eval_profiling.py \
+python experiments/Scheduling/profiling.py \
     --trans.rank 0 \
     --aggregator.mode synchronized \
     --device cuda:0 \
@@ -46,7 +46,7 @@ python experiments/Scheduling/eval_profiling.py \
 
 #### Device
 ```shell
-python experiments/Scheduling/eval_profiling.py \
+python experiments/Scheduling/profiling.py \
     --trans.rank 1 \
     --device cpu \
     --retriever.passages "wikipedia[remote]" \

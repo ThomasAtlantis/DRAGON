@@ -86,6 +86,7 @@ class TTFTEvaluator(Evaluator):
             past_key_values[i][1] = past_key_values[i][1].cpu().float().numpy()
             past_key_values[i] = tuple(past_key_values[i])
         past_key_values = tuple(past_key_values)
+        print(past_key_values[0][0].dtype)
         self.transceiver.send(Message.KV_CACHE, past_key_values)
     
     def _rx_kv_cache(self, mtype: int, mbody: object):

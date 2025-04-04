@@ -109,5 +109,6 @@ class Aggregator(threading.Thread):
         
         accept_loc = next_token == draft_loc.token
         accept_rem = next_token == draft_rem.token
+        print(draft_loc.token, draft_rem.token, next_token)
         return next_token, accept_loc, accept_rem
         
