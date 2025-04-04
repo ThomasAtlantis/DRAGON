@@ -1,1 +1,1 @@
-sudo tc qdisc add dev enp0s31f6 root netem delay 50ms 20ms
+sudo tc qdisc add dev enp0s31f6 root netem delay 300ms 60ms
