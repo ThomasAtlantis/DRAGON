@@ -16,6 +16,8 @@
 /models
 /datasets
 .DS_Store
+/result_analysis/*.json
+/outputs.tar.gz
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

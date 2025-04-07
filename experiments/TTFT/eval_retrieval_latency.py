@@ -18,7 +18,7 @@ seed_everything(42)
 time_meter = TimeMeter()
 
 def get_prompt_dataset(total=2):
-    with open("prompts.json", "r") as f:
+    with open("datasets/prompts/prompts.json", "r") as f:
         prompts = json.load(f)[: total]
     return prompts
 

@@ -33,7 +33,7 @@ seed_everything(42)
 time_meter = TimeMeter()
 
 def get_prompt_dataset(total=2):
-    with open("prompts.json", "r") as f:
+    with open("datasets/prompts/prompts.json", "r") as f:
         prompts = json.load(f)[: total]
     return prompts
 
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     config.trans.rx_port = 6001
 
     if config.trans.rank == 0:
-        config.trans.tx_host = "192.168.1.115"
+        config.trans.tx_host = "192.168.1.198"
         config.trans.tx_port, config.trans.rx_port = config.trans.rx_port, config.trans.tx_port
         evaluator = TTFTEvaluator(config)
     else:

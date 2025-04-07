@@ -114,7 +114,7 @@ class Dragon:
 
     def query(self, query: str, prompt_template: str, max_new_tokens: int):        
         
-        self.profiler = self._build_profiler(query, prompt_template, max_new_tokens)
+        # self.profiler = self._build_profiler(query, prompt_template, max_new_tokens)
         
         # Inform remote decoding
         self._send_begin_generate(query, prompt_template, max_new_tokens)
@@ -168,8 +168,8 @@ class Dragon:
         if mtype != Message.BEGIN_GENERATE: return False
         query, prompt_template, max_new_tokens = mbody
         self.logger.debug(f"Generating response for query: {query}")
-        self.profiler = self._build_profiler(query, prompt_template, max_new_tokens)
-        self._send_profile(self.profiler.stats.records)
+        # self.profiler = self._build_profiler(query, prompt_template, max_new_tokens)
+        # self._send_profile(self.profiler.stats.records)
         self._start_up(query, prompt_template, max_new_tokens)
         return True
     

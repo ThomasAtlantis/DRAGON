@@ -22,7 +22,7 @@ seed_everything(42)
 time_meter = TimeMeter()
 
 def get_prompt_dataset(total=2):
-    with open("prompts.json", "r") as f:
+    with open("datasets/prompts/prompts.json", "r") as f:
         prompts = json.load(f)[: total]
     return prompts
 
@@ -86,7 +86,6 @@ class TTFTEvaluator(Evaluator):
             past_key_values[i][1] = past_key_values[i][1].cpu().float().numpy()
             past_key_values[i] = tuple(past_key_values[i])
         past_key_values = tuple(past_key_values)
-        print(past_key_values[0][0].dtype)
         self.transceiver.send(Message.KV_CACHE, past_key_values)
     
     def _rx_kv_cache(self, mtype: int, mbody: object):
@@ -149,7 +148,7 @@ if __name__ == "__main__":
     config.trans.rx_port = 6001
 
     if config.trans.rank == 0:
-        config.trans.tx_host = "192.168.1.115"
+        config.trans.tx_host = "192.168.1.198"
         config.trans.tx_port, config.trans.rx_port = config.trans.rx_port, config.trans.tx_port
         evaluator = TTFTEvaluator(config)
     else:
